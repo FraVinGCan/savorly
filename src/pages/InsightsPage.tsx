@@ -87,8 +87,8 @@ export default function Insights() {
           )}
         </Card>
         <p className="mt-8 text-xs leading-5 text-muted-foreground">
-          Computed locally from foodwiki.profile.v1, foodwiki.cookbook.v1,
-          foodwiki.pantry.v1, and foodwiki.planner.v1.
+          Computed locally from Savorly profile, cookbook, pantry, and planner
+          data.
         </p>
       </div>
     </PageLayout>

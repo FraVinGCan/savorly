@@ -94,7 +94,7 @@ export const useProfileStore = create<ProfileStore>()(
       reset: () => set({ profile: { ...DEFAULT_PROFILE } }),
     }),
     {
-      name: 'foodwiki.profile.v1',
+      name: 'savorly.profile.v1',
       version: 1,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ profile: s.profile }),

@@ -4,7 +4,7 @@ These rules apply throughout this repository.
 
 ## Boundaries
 
-- Treat this repository as the Food Wiki application.
+- Treat this repository as the Savorly application.
 - Do not start, stop, restart, or otherwise manage the frontend development servers unless the user explicitly requests it.
 - Do not run `npm run dev` unless the user explicitly requests it. Inform me if the implementation requires restarting.
 - Run Git commands only for read-only inspection. Do not commit, amend, stage, reset, restore, checkout, rebase, merge, push, pull, or change branches unless the user explicitly requests it.

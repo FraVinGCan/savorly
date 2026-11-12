@@ -23,7 +23,7 @@ export default function Profile() {
   const fileInput = useRef<HTMLInputElement>(null)
   const exportBackup = () => {
     const backup: Record<string, unknown> = {
-      'foodwiki.version': 1,
+      'savorly.version': 1,
       exportedAt: new Date().toISOString(),
     }
     for (const key of Object.values(STORAGE_KEYS)) {
@@ -39,7 +39,7 @@ export default function Profile() {
     )
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `foodwiki-${new Date().toISOString().slice(0, 10)}.json`
+    anchor.download = `savorly-${new Date().toISOString().slice(0, 10)}.json`
     anchor.click()
     URL.revokeObjectURL(url)
   }
@@ -62,17 +62,17 @@ export default function Profile() {
         restored++
       }
       window.alert(
-        `${restored} Food Wiki sections restored. The page will reload now.`,
+        `${restored} Savorly sections restored. The page will reload now.`,
       )
       location.reload()
     } catch {
-      window.alert('This file is not a valid Food Wiki backup.')
+      window.alert('This file is not a valid Savorly backup.')
     }
   }
   return (
     <PageLayout className="space-y-8">
       <PageTitle
-        eyebrow="YOUR FOOD WIKI"
+        eyebrow="YOUR SAVORLY"
         title="Your kitchen, your preferences."
         sub="A few details help us bring the right recipes closer."
       />
@@ -242,7 +242,7 @@ export default function Profile() {
           onClick={() => {
             if (
               window.confirm(
-                'This clears your Food Wiki preferences, pantry, saved recipes, notes, plans, and creations from this browser. Continue?',
+                'This clears your Savorly preferences, pantry, saved recipes, notes, plans, and creations from this browser. Continue?',
               )
             ) {
               Object.values(STORAGE_KEYS).forEach((key) =>
@@ -251,7 +251,7 @@ export default function Profile() {
               location.reload()
             }
           }}>
-          Clear Food Wiki data
+          Clear Savorly data
         </Button>
         <p>
           {kitchen.pantry.length} pantry items ·{' '}

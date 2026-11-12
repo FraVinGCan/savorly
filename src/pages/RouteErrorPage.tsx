@@ -22,7 +22,7 @@ export default function RouteErrorPage() {
         <h1 className="font-heading text-4xl">This page hit a snag.</h1>
         <p className="text-sm leading-6 text-muted-foreground">{message}</p>
       </div>
-      <Button render={<Link to="/" />}>Back to Food Wiki</Button>
+      <Button render={<Link to="/" />}>Back to Savorly</Button>
     </main>
   )
 }

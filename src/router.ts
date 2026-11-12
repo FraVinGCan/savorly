@@ -10,7 +10,7 @@ export const router = createBrowserRouter([
     path: '/',
     Component: App,
     ErrorBoundary: RouteErrorPage,
-    handle: { title: 'Food Wiki', hideInBreadcrumbs: true },
+    handle: { title: 'Savorly', hideInBreadcrumbs: true },
     children: [
       {
         index: true,

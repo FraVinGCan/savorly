@@ -296,7 +296,7 @@ export const useKitchenStore = create<KitchenState>()(
         }),
     }),
     {
-      name: 'foodwiki.kitchen.v1',
+      name: 'savorly.kitchen.v1',
       storage: createJSONStorage(() => kitchenStorage),
     },
   ),

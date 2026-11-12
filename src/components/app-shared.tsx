@@ -167,11 +167,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <span className="grid size-9 place-items-center rounded-xl bg-secondary text-primary">
               <Leaf size={19} />
             </span>
-            <span>
-              food
-              <wbr />
-              wiki
-            </span>
+            <span>Savorly</span>
           </Link>
           <nav
             className="hidden items-center gap-5 lg:flex"
@@ -260,7 +256,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             to="/"
             className="inline-flex items-center gap-2 font-semibold text-foreground">
             <Leaf size={17} />
-            foodwiki
+            Savorly
           </Link>
           <span>
             Made for the way you cook. Your kitchen data stays on this device.

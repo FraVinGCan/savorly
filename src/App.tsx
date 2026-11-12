@@ -14,7 +14,7 @@ import { Skeleton } from './components/ui/skeleton'
 export default function App() {
   useEffect(() => {
     const sync = (event: StorageEvent) => {
-      if (!event.key?.startsWith('foodwiki.')) return
+      if (!event.key?.startsWith('savorly.')) return
       void useKitchenStore.persist.rehydrate()
       void useProfileStore.persist.rehydrate()
       void useThemeStore.persist.rehydrate()
@@ -71,7 +71,7 @@ export default function App() {
           <span className="grid size-14 place-items-center rounded-2xl bg-secondary text-primary">
             <Leaf />
           </span>
-          <b className="font-heading text-3xl">foodwiki</b>
+          <b className="font-heading text-3xl">Savorly</b>
           <p className="text-sm text-muted-foreground">
             Finding a little inspiration…
           </p>

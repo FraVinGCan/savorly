@@ -1,6 +1,6 @@
-# Food Wiki
+# Savorly
 
-Food Wiki is a recipe and food discovery application.
+Savorly is a recipe discovery and kitchen planning application.
 
 ## Stack
 
