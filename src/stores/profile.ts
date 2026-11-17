@@ -1,13 +1,16 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
 import {
   DEFAULT_PROFILE,
-  parseProfile,
+  hasPreferences,
+  sanitizeProfile,
   type AllergenId,
   type DietId,
   type TasteProfile,
 } from '../domain/taste'
-interface ProfileStore {
+import { STORAGE_KEYS, isRecord } from '../lib/storage'
+
+export interface ProfileStore {
   profile: TasteProfile
   update: (patch: Partial<TasteProfile>) => void
   toggleDiet: (id: DietId) => void
@@ -21,6 +24,20 @@ interface ProfileStore {
   complete: () => void
   reset: () => void
 }
+
+export type ProfileData = { profile: TasteProfile }
+
+export function validateProfileStore(value: unknown): ProfileData {
+  return {
+    profile: sanitizeProfile(isRecord(value) ? value.profile : undefined),
+  }
+}
+
+const toggleValue = <T extends string>(values: T[], value: T): T[] =>
+  values.includes(value)
+    ? values.filter((entry) => entry !== value)
+    : [...values, value]
+
 export const useProfileStore = create<ProfileStore>()(
   persist(
     (set) => ({
@@ -28,38 +45,27 @@ export const useProfileStore = create<ProfileStore>()(
       update: (patch) => set((s) => ({ profile: { ...s.profile, ...patch } })),
       toggleDiet: (id) =>
         set((s) => ({
-          profile: {
-            ...s.profile,
-            diets: s.profile.diets.includes(id)
-              ? s.profile.diets.filter((value) => value !== id)
-              : [...s.profile.diets, id],
-          },
+          profile: { ...s.profile, diets: toggleValue(s.profile.diets, id) },
         })),
       toggleAllergen: (id) =>
         set((s) => ({
           profile: {
             ...s.profile,
-            allergens: s.profile.allergens.includes(id)
-              ? s.profile.allergens.filter((value) => value !== id)
-              : [...s.profile.allergens, id],
+            allergens: toggleValue(s.profile.allergens, id),
           },
         })),
       toggleCuisine: (value) =>
         set((s) => ({
           profile: {
             ...s.profile,
-            favoriteCuisines: s.profile.favoriteCuisines.includes(value)
-              ? s.profile.favoriteCuisines.filter((item) => item !== value)
-              : [...s.profile.favoriteCuisines, value],
+            favoriteCuisines: toggleValue(s.profile.favoriteCuisines, value),
           },
         })),
       toggleTag: (value) =>
         set((s) => ({
           profile: {
             ...s.profile,
-            favoriteTags: s.profile.favoriteTags.includes(value)
-              ? s.profile.favoriteTags.filter((item) => item !== value)
-              : [...s.profile.favoriteTags, value],
+            favoriteTags: toggleValue(s.profile.favoriteTags, value),
           },
         })),
       addAvoidIngredient: (value) =>
@@ -94,17 +100,18 @@ export const useProfileStore = create<ProfileStore>()(
       reset: () => set({ profile: { ...DEFAULT_PROFILE } }),
     }),
     {
-      name: 'savorly.profile.v1',
+      name: STORAGE_KEYS.profile,
       version: 1,
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ profile: s.profile }),
-      merge: (persisted, current) => {
-        const value = persisted as { profile?: unknown }
-        return {
-          ...current,
-          profile: parseProfile(JSON.stringify(value?.profile ?? {})),
-        }
-      },
+      partialize: (state): ProfileData => ({ profile: state.profile }),
+      merge: (persisted, current) => ({
+        ...current,
+        ...validateProfileStore(persisted),
+      }),
     },
   ),
 )
+
+export const isProfileComplete = (profile: TasteProfile) =>
+  profile.createdAt !== null
+export const isPersonalised = (profile: TasteProfile) => hasPreferences(profile)

@@ -1,29 +1,80 @@
-import { Link, useNavigate, useOutletContext, useParams } from 'react-router'
-import { Clock3, Heart } from 'lucide-react'
-import { useKitchenStore } from '../stores/kitchen'
-import { useProfileStore } from '../stores/profile'
-import { profileConflicts } from '../domain/taste'
-import { weekdayIndex, weekKey } from '../domain/week'
-import type { CatalogRecipe, RecipeId } from '../types/recipe'
-import { PageLayout, PageTitle } from '../components/app-shared'
-import { Button } from '../components/ui/button'
-import { Textarea } from '../components/ui/textarea'
-import { Card } from '../components/ui/card'
+import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router'
 import { queryOptions, useQuery } from '@tanstack/react-query'
+import {
+  BookmarkPlus,
+  CalendarPlus,
+  ChefHat,
+  GitCompare,
+  Heart,
+  Share2,
+} from 'lucide-react'
+import { EMPTY_COOK_ENTRY, useCookbookStore } from '../stores/cookbook'
+import { useCompareStore, MAX_COMPARE } from '../stores/compare'
+import { useCreationsStore } from '../stores/creations'
+import { usePantryStore } from '../stores/pantry'
+import { usePlannerStore } from '../stores/planner'
+import { useProfileStore } from '../stores/profile'
+import { toast } from '../stores/toast'
 import { fetchAuthor } from '../lib/api'
+import { copyText } from '../lib/clipboard'
+import { plural } from '../lib/format'
+import {
+  DIETS,
+  allergenBadges,
+  profileConflicts,
+  type TasteProfile,
+} from '../domain/taste'
 import { evaluateRecipe, scoreTier } from '../domain/scoring'
+import { weekKey, weekdayIndex } from '../domain/week'
+import { useRecipes } from '../hooks/useRecipes'
 import { useTasteSetup } from '../hooks/useTasteSetup'
-
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { PageLayout, PageHeader, RecipeCard } from '../components/app-shared'
+import {
+  Badge,
+  ButtonLink,
+  ConfirmDialog,
+  CopyFallbackDialog,
+  Rating,
+  ScoreRing,
+} from '../components/primitives'
+import { Button } from '../components/ui/button'
+import { Card } from '../components/ui/card'
+import { Checkbox } from '../components/ui/controls'
+import { Textarea } from '../components/ui/textarea'
+import type { RecipeId } from '../types/recipe'
 
-export default function Detail() {
-  const catalog = useOutletContext<CatalogRecipe[]>()
+export default function RecipeDetail() {
   const { id: routeId } = useParams()
-  const navigate = useNavigate()
   const id = (routeId ?? '') as RecipeId
-  const item = catalog.find((x) => x.id === id)
+  const navigate = useNavigate()
+  const { catalog, get } = useRecipes()
+  const item = get(id)
   useDocumentTitle(item?.recipe.name ?? 'Recipe')
+
   const { ctx } = useTasteSetup()
+  const profile = useProfileStore((state) => state.profile)
+  const favorites = useCookbookStore((state) => state.favorites)
+  const notes = useCookbookStore((state) => state.notes)
+  const ratings = useCookbookStore((state) => state.ratings)
+  const cooked = useCookbookStore((state) => state.cooked)
+  const toggleFavorite = useCookbookStore((state) => state.toggleFavorite)
+  const setNote = useCookbookStore((state) => state.setNote)
+  const rate = useCookbookStore((state) => state.rate)
+  const logCook = useCookbookStore((state) => state.logCook)
+  const compareIds = useCompareStore((state) => state.ids)
+  const toggleCompare = useCompareStore((state) => state.toggle)
+  const pantry = usePantryStore((state) => state.items)
+  const togglePantry = usePantryStore((state) => state.toggle)
+  const hasPantry = usePantryStore((state) => state.has)
+  const assignToPlan = usePlannerStore((state) => state.assign)
+  const deleteCreation = useCreationsStore((state) => state.deleteCreation)
+
+  const [imageFailed, setImageFailed] = useState(false)
+  const [copyFallback, setCopyFallback] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
   const authorId = item?.recipe.userId ?? 0
   const authorQuery = useQuery(
     queryOptions({
@@ -33,30 +84,98 @@ export default function Detail() {
       staleTime: Infinity,
     }),
   )
-  const profile = useProfileStore((s) => s.profile)
-  const kitchen = useKitchenStore()
+
   if (!item)
     return (
       <PageLayout>
-        <PageTitle
+        <PageHeader
           eyebrow="RECIPE NOT FOUND"
           title="We couldn't find that one."
-          sub="Try browsing the recipe box instead."
+          sub="The recipe may have been removed, or the link may be out of date."
+          actions={<ButtonLink to="/recipes">Browse recipes</ButtonLink>}
         />
-        <Button render={<Link to="/recipes" />}>Browse recipes</Button>
       </PageLayout>
     )
-  const r = item.recipe
+
+  const recipe = item.recipe
   const evaluation = evaluateRecipe(item, ctx)
-  const shareRecipe = async () => {
+  const entry = cooked[item.id] ?? EMPTY_COOK_ENTRY
+  const conflicts = profile.createdAt ? profileConflicts(recipe, profile) : []
+  const allergens = allergenBadges(recipe)
+  const suitableDiets = DIETS.filter(
+    (diet) =>
+      profileConflicts(recipe, {
+        diets: [diet],
+        allergens: [],
+        avoidIngredients: [],
+      } satisfies Pick<
+        TasteProfile,
+        'diets' | 'allergens' | 'avoidIngredients'
+      >).length === 0,
+  )
+  const related = catalog
+    .filter((candidate) => candidate.id !== item.id)
+    .map((candidate) => {
+      const sharedTags = candidate.recipe.tags.filter((tag) =>
+        recipe.tags.includes(tag),
+      ).length
+      return {
+        item: candidate,
+        weight:
+          (candidate.recipe.cuisine === recipe.cuisine ? 10 : 0) +
+          sharedTags * 2 +
+          candidate.recipe.rating,
+      }
+    })
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 4)
+    .map((row) => row.item)
+
+  const favorite = Boolean(favorites[item.id])
+  const inCompare = compareIds.includes(item.id)
+  const myRating = ratings[item.id] ?? 0
+
+  const share = async () => {
     const url = window.location.href
-    try {
-      await navigator.clipboard.writeText(url)
-    } catch {
-      window.prompt('Copy this recipe link', url)
+    if (await copyText(url)) toast.success('Recipe link copied')
+    else {
+      toast.error('Could not copy the link')
+      setCopyFallback(url)
     }
   }
-  const conflicts = profile.createdAt ? profileConflicts(r, profile) : []
+
+  const addToToday = () => {
+    const today = new Date()
+    assignToPlan(weekKey(today), weekdayIndex(today), item.id)
+    toast.success('Added to today’s plan', recipe.name)
+  }
+
+  const compare = () => {
+    if (!inCompare && compareIds.length >= MAX_COMPARE) {
+      toast.error(
+        'Compare tray is full',
+        `Remove one of the ${MAX_COMPARE} recipes first.`,
+      )
+      return
+    }
+    const added = toggleCompare(item.id)
+    toast.success(
+      added ? 'Added to compare' : 'Removed from compare',
+      recipe.name,
+    )
+  }
+
+  const removeCreation = async () => {
+    const result = await deleteCreation(item.id)
+    if (result.synced) toast.success('Recipe deleted', recipe.name)
+    else
+      toast.error(
+        'Recipe removed locally',
+        'The DummyJSON echo failed, but your local copy is gone.',
+      )
+    navigate('/recipes')
+  }
+
   return (
     <PageLayout className="space-y-8">
       <Button
@@ -66,172 +185,299 @@ export default function Detail() {
         onClick={() => navigate(-1)}>
         ← Back to recipes
       </Button>
-      <div className="flex flex-col justify-between gap-4 border-b border-border pb-6 lg:flex-row lg:items-end">
+
+      <header className="flex flex-col justify-between gap-4 border-b border-border pb-6 lg:flex-row lg:items-end">
         <div>
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-primary">
-            {r.cuisine} · {r.mealType.join(' / ')}
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-primary">
+            <Badge tone="sage">{recipe.cuisine}</Badge>
+            {recipe.mealType.map((meal) => (
+              <Badge key={meal} tone="neutral">
+                {meal}
+              </Badge>
+            ))}
+            <Badge tone="amber" glyph="★">
+              {recipe.rating.toFixed(1)}
+            </Badge>
+            {item.source === 'mine' && <Badge tone="dark">Your recipe</Badge>}
           </div>
           <h1 className="font-heading text-4xl leading-tight tracking-tight sm:text-5xl">
-            {r.name}
+            {recipe.name}
           </h1>
           <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            {r.rating.toFixed(1)} ★ <span>·</span> {r.difficulty} <span>·</span>{' '}
-            {r.prepTimeMinutes + r.cookTimeMinutes} minutes
+            {recipe.difficulty} <span>·</span>{' '}
+            {recipe.prepTimeMinutes + recipe.cookTimeMinutes} minutes
+            {entry.count > 0 && (
+              <>
+                <span>·</span>
+                <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                  <ChefHat size={15} aria-hidden="true" /> Cooked {entry.count}×
+                </span>
+              </>
+            )}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => void shareRecipe()}>
-            Share
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <Button variant="outline" onClick={() => void share()}>
+            <Share2 size={16} aria-hidden="true" /> Share
           </Button>
-          <Button variant="ghost" onClick={() => kitchen.toggleFavorite(id)}>
-            <Heart size={17} />{' '}
-            {kitchen.favorites[id] ? 'Saved' : 'Save recipe'}
+          <Button variant="ghost" onClick={() => toggleFavorite(item.id)}>
+            <Heart
+              size={17}
+              fill={favorite ? 'currentColor' : 'none'}
+              aria-hidden="true"
+            />
+            {favorite ? 'Saved' : 'Save recipe'}
           </Button>
-          <Button onClick={() => kitchen.logCook(id)}>I made this</Button>
+          <Button onClick={() => logCook(item.id)}>
+            <ChefHat size={17} aria-hidden="true" /> I cooked this
+          </Button>
           {item.source === 'mine' && (
             <>
-              <Button
-                variant="outline"
-                render={<Link to={`/creations/${id}/edit`} />}>
+              <ButtonLink variant="outline" to={`/creations/${item.id}/edit`}>
                 Edit
-              </Button>
+              </ButtonLink>
               <Button
                 variant="ghost"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      'Delete this local recipe? This action cannot be undone.',
-                    )
-                  ) {
-                    kitchen.removeCreation(id)
-                    navigate('/recipes')
-                  }
-                }}>
+                className="text-destructive"
+                onClick={() => setConfirmDelete(true)}>
                 Delete
               </Button>
             </>
           )}
         </div>
-      </div>
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.8fr)]">
+      </header>
+
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,0.85fr)]">
         <div className="min-w-0 space-y-8">
-          <img
-            className="aspect-[16/10] w-full rounded-2xl object-cover"
-            src={r.image}
-            alt={r.name}
-          />
-          <Card className="grid grid-cols-3 gap-3 rounded-2xl border border-border bg-card p-4 shadow-none ring-1 ring-border/70">
-            <div className="space-y-1">
+          {imageFailed || !recipe.image ? (
+            <div className="grid aspect-[16/10] w-full place-items-center rounded-2xl bg-secondary text-6xl text-secondary-foreground">
+              <span aria-hidden="true">🍽️</span>
+              <span className="sr-only">
+                No photo available for {recipe.name}
+              </span>
+            </div>
+          ) : (
+            <img
+              className="aspect-[16/10] w-full rounded-2xl object-cover"
+              src={recipe.image}
+              alt={recipe.name}
+              onError={() => setImageFailed(true)}
+            />
+          )}
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Card className="rounded-2xl border border-border bg-card p-4 shadow-none ring-1 ring-border/70">
               <b className="block text-xl">
-                {r.prepTimeMinutes + r.cookTimeMinutes} min
+                {recipe.prepTimeMinutes + recipe.cookTimeMinutes} min
               </b>
               <small className="text-xs text-muted-foreground">
-                Total time
+                {recipe.prepTimeMinutes} prep · {recipe.cookTimeMinutes} cook
               </small>
-            </div>
-            <div className="space-y-1">
-              <b className="block text-xl">{r.caloriesPerServing}</b>
+            </Card>
+            <Card className="rounded-2xl border border-border bg-card p-4 shadow-none ring-1 ring-border/70">
+              <b className="block text-xl">{recipe.caloriesPerServing}</b>
               <small className="text-xs text-muted-foreground">
-                Calories / serving
+                kcal / serving
               </small>
-            </div>
-            <div className="space-y-1">
-              <b className="block text-xl">{r.servings}</b>
-              <small className="text-xs text-muted-foreground">Servings</small>
-            </div>
-          </Card>
-          <section className="space-y-4 border-b border-border pb-7">
-            <h2 className="font-heading text-2xl">What you'll need</h2>
+            </Card>
+            <Card className="rounded-2xl border border-border bg-card p-4 shadow-none ring-1 ring-border/70">
+              <b className="block text-xl">{recipe.servings}</b>
+              <small className="text-xs text-muted-foreground">servings</small>
+            </Card>
+            <Card className="rounded-2xl border border-border bg-card p-4 shadow-none ring-1 ring-border/70">
+              <b className="block text-xl">{recipe.tags.length}</b>
+              <small className="text-xs text-muted-foreground">
+                {recipe.difficulty} · {plural(recipe.tags.length, 'tag')}
+              </small>
+            </Card>
+          </div>
+
+          <section className="space-y-3 border-b border-border pb-7">
+            <h2 className="font-heading text-2xl">What you&apos;ll need</h2>
             <p className="text-sm leading-6 text-muted-foreground">
-              A little note: this source doesn't include quantities.
+              This source doesn&apos;t include quantities. Tick an ingredient to
+              add it to your pantry; the check is saved on this device.
             </p>
-            {r.ingredients.map((x, i) => (
-              <label
-                className="flex items-start gap-3 rounded-lg py-2 text-sm"
-                key={i}>
-                <input type="checkbox" />
-                <span>{x}</span>
-              </label>
-            ))}
+            <ul className="space-y-1">
+              {recipe.ingredients.map((ingredient) => {
+                const owned = hasPantry(ingredient)
+                return (
+                  <li
+                    key={ingredient}
+                    className="flex items-start gap-3 rounded-lg px-1 py-1.5 text-sm">
+                    <Checkbox
+                      checked={owned}
+                      onCheckedChange={() => togglePantry(ingredient)}
+                      label={`${owned ? 'Remove' : 'Add'} ${ingredient} ${owned ? 'from' : 'to'} pantry`}
+                      className="mt-0.5"
+                    />
+                    <span
+                      className={
+                        owned
+                          ? 'text-muted-foreground line-through decoration-primary/40'
+                          : undefined
+                      }>
+                      {ingredient}
+                    </span>
+                    {owned && (
+                      <Badge tone="sage" className="ml-auto shrink-0">
+                        on hand
+                      </Badge>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              {pantry.length
+                ? `Matching is fuzzy: ${plural(pantry.length, 'pantry item')} checked against normalised ingredient keys.`
+                : 'Your pantry is empty, so nothing is marked on hand yet.'}
+            </p>
           </section>
-          <section className="space-y-4 border-b border-border pb-7">
-            <h2 className="font-heading text-2xl">Let's make it</h2>
-            {r.instructions.map((x, i) => (
+
+          <section className="space-y-3 border-b border-border pb-7">
+            <h2 className="font-heading text-2xl">Let&apos;s make it</h2>
+            {recipe.instructions.map((step, index) => (
               <div
                 className="flex gap-4 border-b border-border py-3 text-sm leading-6"
-                key={i}>
-                <b>{String(i + 1).padStart(2, '0')}</b>
-                <p>{x}</p>
+                key={`${index}-${step.slice(0, 24)}`}>
+                <b className="text-primary">
+                  {String(index + 1).padStart(2, '0')}
+                </b>
+                <p>{step}</p>
               </div>
             ))}
           </section>
-          <section className="space-y-4 border-b border-border pb-7">
+
+          <section className="space-y-3 border-b border-border pb-7">
             <h2 className="font-heading text-2xl">Your private notes</h2>
             <Textarea
               className="min-h-24 w-full resize-y rounded-xl border border-border bg-card px-3 py-3 text-xs"
               placeholder="What did you change? Would you make it again?"
-              value={kitchen.notes[id] ?? ''}
-              onChange={(e) => kitchen.setNote(id, e.target.value)}
+              aria-label="Your private note"
+              value={notes[item.id] ?? ''}
+              onChange={(event) => setNote(item.id, event.target.value)}
             />
+            <p className="text-xs text-muted-foreground">
+              Saved automatically in this browser.
+            </p>
           </section>
+
+          {allergens.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="font-heading text-2xl">Contains</h2>
+              <div className="flex flex-wrap gap-2">
+                {allergens.map((allergen) => (
+                  <Badge key={allergen.id} tone="amber" glyph={allergen.glyph}>
+                    {allergen.label}
+                  </Badge>
+                ))}
+              </div>
+              <p className="text-xs leading-5 text-muted-foreground">
+                Keyword detection is a helpful hint, not a safety guarantee.
+                Always check the source recipe.
+              </p>
+            </section>
+          )}
+
+          {recipe.tags.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="font-heading text-2xl">Tags</h2>
+              <div className="flex flex-wrap gap-2">
+                {recipe.tags.map((tag) => (
+                  <Link
+                    key={tag}
+                    to={`/recipes?tag=${encodeURIComponent(tag)}`}
+                    className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                    {tag}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
+
         <aside className="space-y-4 lg:sticky lg:top-24">
           <Card className="space-y-3 rounded-2xl border border-border p-5 shadow-none ring-0">
-            <h3 className="font-heading text-xl">At a glance</h3>
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock3 size={16} /> Prep {r.prepTimeMinutes} min · Cook{' '}
-              {r.cookTimeMinutes} min
-            </p>
-            <p className="text-sm text-muted-foreground">
-              ★ Community rating {r.rating.toFixed(1)} / 5
-            </p>
+            <h2 className="font-heading text-xl">Make it yours</h2>
             <Button
               variant="outline"
-              className="w-full"
-              onClick={() => kitchen.toggleCompare(id)}>
-              ＋ Add to compare
+              className="w-full justify-start"
+              onClick={() => toggleFavorite(item.id)}>
+              <Heart
+                size={16}
+                fill={favorite ? 'currentColor' : 'none'}
+                aria-hidden="true"
+              />
+              {favorite ? 'Remove from favourites' : 'Save to favourites'}
             </Button>
             <Button
               variant="outline"
-              className="w-full"
-              onClick={() => {
-                const today = new Date()
-                kitchen.assign(weekKey(today), weekdayIndex(today), id)
-                navigate('/planner')
-              }}>
-              Add to today's plan
+              className="w-full justify-start"
+              onClick={addToToday}>
+              <CalendarPlus size={16} aria-hidden="true" /> Add to today&apos;s
+              plan
             </Button>
             <Button
               variant="outline"
-              className="w-full"
-              onClick={() => kitchen.rate(id, 5)}>
-              Rate this recipe ☆
+              className="w-full justify-start"
+              onClick={compare}>
+              <GitCompare size={16} aria-hidden="true" />
+              {inCompare ? 'Remove from compare' : 'Add to compare'}
             </Button>
-          </Card>
-          <Card className="rounded-2xl border border-border p-5 shadow-none ring-0">
-            <div className="flex items-center gap-4">
-              <div
-                className="grid size-16 shrink-0 place-items-center rounded-full p-[5px]"
-                style={{
-                  background: `conic-gradient(var(--primary) ${evaluation.score * 3.6}deg, var(--muted) 0)`,
-                }}>
-                <div className="grid size-full place-items-center rounded-full bg-card text-lg font-semibold">
-                  {evaluation.eligible ? evaluation.score : '—'}
-                </div>
+            <div className="space-y-2 border-t border-border pt-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium">Your rating</span>
+                <Rating
+                  value={myRating}
+                  onChange={(value) => {
+                    rate(item.id, value)
+                    toast.success(`Rated ${value} / 5`, recipe.name)
+                  }}
+                />
               </div>
+              {entry.lastCooked && (
+                <p className="text-xs text-muted-foreground">
+                  Last cooked {new Date(entry.lastCooked).toLocaleDateString()}
+                </p>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => {
+                  logCook(item.id)
+                  toast.success('Cook logged', recipe.name)
+                }}>
+                <BookmarkPlus size={15} aria-hidden="true" /> Log another cook
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="space-y-4 rounded-2xl border border-border p-5 shadow-none ring-0">
+            <div className="flex items-center gap-4">
+              <ScoreRing
+                score={evaluation.score}
+                eligible={evaluation.eligible}
+              />
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Your match
                 </p>
-                <h3 className="mt-1 font-heading text-xl">
+                <h2 className="mt-1 font-heading text-xl">
                   {evaluation.eligible
                     ? scoreTier(evaluation.score)
                     : 'Off-menu'}
-                </h3>
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {evaluation.personalized
+                    ? 'Weighted against your profile'
+                    : 'Catalogue rating — finish onboarding for a personal score'}
+                </p>
               </div>
             </div>
             {evaluation.reasons.length > 0 && (
-              <ul className="mt-4 space-y-2 border-t border-border pt-4">
+              <ul className="space-y-2 border-t border-border pt-4">
                 {evaluation.reasons.map((reason) => (
                   <li
                     className="flex items-start justify-between gap-3 text-xs"
@@ -242,7 +488,7 @@ export default function Detail() {
                     <span
                       className={
                         reason.weight < 0
-                          ? 'text-destructive'
+                          ? 'font-medium text-destructive'
                           : 'font-medium text-primary'
                       }>
                       {reason.weight > 0 ? '+' : ''}
@@ -253,6 +499,40 @@ export default function Detail() {
               </ul>
             )}
           </Card>
+
+          {conflicts.length > 0 && (
+            <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm leading-6">
+              <b>Why it is off your menu</b>
+              <ul className="mt-2 space-y-1">
+                {conflicts.map((conflict) => (
+                  <li key={conflict.id}>
+                    {conflict.glyph} {conflict.label}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Ingredient matching is a helpful hint, not a safety guarantee.
+              </p>
+            </div>
+          )}
+
+          <Card className="rounded-2xl border border-border p-5 shadow-none ring-0">
+            <h2 className="font-heading text-xl">Suitable for</h2>
+            {suitableDiets.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {suitableDiets.map((diet) => (
+                  <Badge key={diet} tone="sage">
+                    {diet}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">
+                No listed diet fits this recipe with certainty.
+              </p>
+            )}
+          </Card>
+
           {authorId > 0 && (
             <Card className="flex items-center gap-3 rounded-2xl border border-border p-4 shadow-none ring-0">
               <div className="grid size-10 place-items-center rounded-full bg-secondary font-heading text-lg text-primary">
@@ -270,17 +550,51 @@ export default function Detail() {
               </div>
             </Card>
           )}
-          {conflicts.length > 0 && (
-            <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm leading-6">
-              <b>May not fit your profile</b>
-              <p>
-                {conflicts.map((conflict) => conflict.label).join(', ')}.
-                Ingredient matching is a helpful hint, not a safety guarantee.
-              </p>
-            </div>
-          )}
         </aside>
       </div>
+
+      {related.length > 0 && (
+        <section>
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+                <span className="size-1.5 rounded-full bg-primary" /> KEEP
+                COOKING
+              </div>
+              <h2 className="font-heading text-2xl sm:text-3xl">
+                More like this
+              </h2>
+            </div>
+            <Link
+              className="text-sm font-medium text-primary hover:underline"
+              to={`/recipes?cuisine=${encodeURIComponent(recipe.cuisine)}`}>
+              More {recipe.cuisine}
+            </Link>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {related.map((candidate) => (
+              <RecipeCard key={candidate.id} item={candidate} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Delete this local recipe?"
+        description="This removes it from this browser. It is local-only and cannot be undone."
+        confirmLabel="Delete recipe"
+        destructive
+        onConfirm={() => void removeCreation()}
+      />
+
+      <CopyFallbackDialog
+        open={Boolean(copyFallback)}
+        onOpenChange={(open) => !open && setCopyFallback('')}
+        value={copyFallback}
+        title="Copy this recipe link"
+      />
     </PageLayout>
   )
 }

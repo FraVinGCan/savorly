@@ -185,57 +185,65 @@ export function allergenBadges(
     ...ALLERGEN_META[id],
   }))
 }
+/**
+ * Whitelists ids, coerces numbers and falls back to defaults. Shared by the
+ * profile store, the importer and onboarding so no corrupt payload can crash
+ * the app.
+ */
+export function sanitizeProfile(value: unknown): TasteProfile {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return { ...DEFAULT_PROFILE }
+  const source = value as Record<string, unknown>
+  const valid = (xs: unknown, allowed: readonly string[]) =>
+    Array.isArray(xs)
+      ? xs.filter(
+          (x): x is string => typeof x === 'string' && allowed.includes(x),
+        )
+      : []
+  const strings = (xs: unknown) =>
+    Array.isArray(xs)
+      ? xs
+          .filter((x): x is string => typeof x === 'string')
+          .map((x) => x.trim())
+          .filter(Boolean)
+      : []
+  const number = (input: unknown) => {
+    if (input === null || input === undefined || input === '') return null
+    const parsed = Number(input)
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : null
+  }
+  return {
+    version: 1,
+    displayName:
+      typeof source.displayName === 'string'
+        ? source.displayName.trim().slice(0, 80)
+        : '',
+    diets: valid(source.diets, DIETS) as DietId[],
+    allergens: valid(source.allergens, ALLERGENS) as AllergenId[],
+    avoidIngredients: strings(source.avoidIngredients),
+    maxTotalMinutes: number(source.maxTotalMinutes),
+    maxCalories: number(source.maxCalories),
+    favoriteCuisines: strings(source.favoriteCuisines),
+    favoriteTags: strings(source.favoriteTags),
+    goal: ['balanced', 'light', 'comfort', 'quick'].includes(
+      String(source.goal),
+    )
+      ? (source.goal as TasteProfile['goal'])
+      : DEFAULT_PROFILE.goal,
+    spice: ['none', 'mild', 'medium', 'hot'].includes(String(source.spice))
+      ? (source.spice as TasteProfile['spice'])
+      : DEFAULT_PROFILE.spice,
+    createdAt:
+      typeof source.createdAt === 'string' &&
+      !Number.isNaN(Date.parse(source.createdAt))
+        ? source.createdAt
+        : null,
+  }
+}
+
 export function parseProfile(raw: string): TasteProfile {
   try {
-    const value: unknown = JSON.parse(raw)
-    if (!value || typeof value !== 'object' || Array.isArray(value))
-      return { ...DEFAULT_PROFILE }
-    const source = value as Record<string, unknown>
-    const valid = (xs: unknown, allowed: readonly string[]) =>
-      Array.isArray(xs)
-        ? xs.filter(
-            (x): x is string => typeof x === 'string' && allowed.includes(x),
-          )
-        : []
-    const strings = (xs: unknown) =>
-      Array.isArray(xs)
-        ? xs
-            .filter((x): x is string => typeof x === 'string')
-            .map((x) => x.trim())
-            .filter(Boolean)
-        : []
-    const number = (input: unknown) => {
-      if (input === null || input === undefined || input === '') return null
-      const parsed = Number(input)
-      return Number.isFinite(parsed) ? Math.max(0, parsed) : null
-    }
-    return {
-      version: 1,
-      displayName:
-        typeof source.displayName === 'string'
-          ? source.displayName.trim().slice(0, 80)
-          : '',
-      diets: valid(source.diets, DIETS) as DietId[],
-      allergens: valid(source.allergens, ALLERGENS) as AllergenId[],
-      avoidIngredients: strings(source.avoidIngredients),
-      maxTotalMinutes: number(source.maxTotalMinutes),
-      maxCalories: number(source.maxCalories),
-      favoriteCuisines: strings(source.favoriteCuisines),
-      favoriteTags: strings(source.favoriteTags),
-      goal: ['balanced', 'light', 'comfort', 'quick'].includes(
-        String(source.goal),
-      )
-        ? (source.goal as TasteProfile['goal'])
-        : DEFAULT_PROFILE.goal,
-      spice: ['none', 'mild', 'medium', 'hot'].includes(String(source.spice))
-        ? (source.spice as TasteProfile['spice'])
-        : DEFAULT_PROFILE.spice,
-      createdAt:
-        typeof source.createdAt === 'string' &&
-        !Number.isNaN(Date.parse(source.createdAt))
-          ? source.createdAt
-          : null,
-    }
+    return sanitizeProfile(JSON.parse(raw) as unknown)
   } catch {
     return { ...DEFAULT_PROFILE }
   }

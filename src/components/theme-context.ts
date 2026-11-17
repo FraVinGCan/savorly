@@ -3,7 +3,9 @@ import type { ThemeChoice } from '../stores/theme'
 
 export interface ThemeContextValue {
   theme: ThemeChoice
+  resolvedTheme: 'light' | 'dark'
   setTheme: (theme: ThemeChoice) => void
+  toggle: () => void
 }
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null)

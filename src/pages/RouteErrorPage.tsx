@@ -1,8 +1,8 @@
-import { isRouteErrorResponse, Link, useRouteError } from 'react-router'
+import { isRouteErrorResponse, useRouteError } from 'react-router'
 import { Leaf } from 'lucide-react'
-import { Button } from '../components/ui/button'
 
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { ButtonLink } from '../components/primitives'
 
 export default function RouteErrorPage() {
   useDocumentTitle('Something went wrong')
@@ -22,7 +22,7 @@ export default function RouteErrorPage() {
         <h1 className="font-heading text-4xl">This page hit a snag.</h1>
         <p className="text-sm leading-6 text-muted-foreground">{message}</p>
       </div>
-      <Button render={<Link to="/" />}>Back to Savorly</Button>
+      <ButtonLink to="/">Back to Savorly</ButtonLink>
     </main>
   )
 }

@@ -1,30 +1,61 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
 import { STORAGE_KEYS } from '../lib/storage'
 
 export type ThemeChoice = 'light' | 'dark' | 'system'
+
+export const THEME_CHOICES: ThemeChoice[] = ['light', 'dark', 'system']
+
+export const isThemeChoice = (value: unknown): value is ThemeChoice =>
+  value === 'light' || value === 'dark' || value === 'system'
+
 interface ThemeStore {
   theme: ThemeChoice
   setTheme: (theme: ThemeChoice) => void
   toggle: () => void
 }
+
+interface ThemeData {
+  theme: ThemeChoice
+}
+
+/** The stored value is unquoted so the inline bootstrap script can read it. */
 const plainThemeStorage = {
   getItem: () => {
-    const theme = localStorage.getItem(STORAGE_KEYS.theme) as ThemeChoice | null
-    return theme ? JSON.stringify({ state: { theme } }) : null
+    let theme: string | null
+    try {
+      theme = localStorage.getItem(STORAGE_KEYS.theme)
+    } catch {
+      theme = null
+    }
+    return JSON.stringify({
+      state: { theme: isThemeChoice(theme) ? theme : 'system' },
+    })
   },
   setItem: (_name: string, value: string) => {
-    const parsed = JSON.parse(value) as { state?: { theme?: ThemeChoice } }
-    if (parsed.state?.theme)
-      localStorage.setItem(STORAGE_KEYS.theme, parsed.state.theme)
+    try {
+      const parsed = JSON.parse(value) as { state?: ThemeData }
+      if (isThemeChoice(parsed.state?.theme))
+        localStorage.setItem(STORAGE_KEYS.theme, parsed.state.theme)
+    } catch {
+      // A malformed write leaves the previous valid theme in place.
+    }
   },
-  removeItem: () => localStorage.removeItem(STORAGE_KEYS.theme),
+  removeItem: () => {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.theme)
+    } catch {
+      // Storage unavailable; nothing to remove.
+    }
+  },
 }
+
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set) => ({
       theme: 'system',
-      setTheme: (theme) => set({ theme }),
+      setTheme: (theme) =>
+        set({ theme: isThemeChoice(theme) ? theme : 'system' }),
       toggle: () =>
         set((state) => ({
           theme:
@@ -38,6 +69,17 @@ export const useThemeStore = create<ThemeStore>()(
     {
       name: STORAGE_KEYS.theme,
       storage: createJSONStorage(() => plainThemeStorage),
+      partialize: (state): ThemeData => ({ theme: state.theme }),
+      merge: (persisted, current) => {
+        const theme = (persisted as ThemeData | undefined)?.theme
+        return { ...current, theme: isThemeChoice(theme) ? theme : 'system' }
+      },
     },
   ),
 )
+
+export const resolvedTheme = (
+  theme: ThemeChoice,
+  prefersDark: boolean,
+): 'light' | 'dark' =>
+  theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme

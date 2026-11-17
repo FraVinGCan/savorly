@@ -1,188 +1,197 @@
 import { useDeferredValue, useMemo, useState } from 'react'
-import { useOutletContext, useSearchParams } from 'react-router'
 import {
   ChevronLeft,
   ChevronRight,
   Search,
-  SlidersHorizontal,
   Share2,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react'
 import {
   applyBrowse,
   catalogFacets,
   PAGE_SIZE,
   activeFilterCount,
-  type BrowseState,
+  BROWSE_SORTS,
 } from '../domain/browse'
-import type { CatalogRecipe } from '../types/recipe'
-import { PageLayout, PageTitle, RecipeCard } from '../components/app-shared'
+import { useCookbookStore } from '../stores/cookbook'
+import { useRecipes } from '../hooks/useRecipes'
+import { useRecipeFilters } from '../hooks/useRecipeFilters'
+import { useTasteSetup } from '../hooks/useTasteSetup'
+import { useScoreLookup } from '../hooks/useScoreLookup'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { copyText } from '../lib/clipboard'
+import { toast } from '../stores/toast'
+import { PageLayout, PageHeader, RecipeGrid } from '../components/app-shared'
+import {
+  AccordionSection,
+  ButtonLink,
+  Chip,
+  CopyFallbackDialog,
+  EmptyState,
+} from '../components/primitives'
+import { Button } from '../components/ui/button'
+import { Dialog } from '../components/ui/dialog'
+import { Input } from '../components/ui/input'
 import {
   NativeSelect,
   NativeSelectOption,
 } from '../components/ui/native-select'
-import { Input } from '../components/ui/input'
-import { Button } from '../components/ui/button'
-import { Card } from '../components/ui/card'
-import { useKitchenStore } from '../stores/kitchen'
-import { useTasteSetup } from '../hooks/useTasteSetup'
-import { useScoreLookup } from '../hooks/useScoreLookup'
+import type { RecipeId } from '../types/recipe'
 
-function FilterChip({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean
-  children: React.ReactNode
-  onClick: () => void
-}) {
-  return (
-    <Button
-      type="button"
-      size="sm"
-      variant={active ? 'default' : 'outline'}
-      className="rounded-full"
-      aria-pressed={active}
-      onClick={onClick}>
-      {children}
-    </Button>
-  )
-}
+const SORT_LABELS = {
+  recommended: 'Recommended',
+  'name-asc': 'Name A–Z',
+  'name-desc': 'Name Z–A',
+  'rating-desc': 'Rating: high to low',
+  'rating-asc': 'Rating: low to high',
+  'time-asc': 'Time: shortest',
+  'time-desc': 'Time: longest',
+  'calories-asc': 'Calories: lowest',
+  'calories-desc': 'Calories: highest',
+} as const
+
+const DIFFICULTIES = ['Easy', 'Medium', 'Hard'] as const
+const TIMES = [15, 30, 45, 60, 90] as const
+const CALORIES = [200, 300, 400, 500] as const
 
 export default function Browse() {
-  const catalog = useOutletContext<CatalogRecipe[]>()
-  const [params, setParams] = useSearchParams()
-  const [mobileFilters, setMobileFilters] = useState(false)
-  const favorites = useKitchenStore((state) => state.favorites)
-  const cooked = useKitchenStore((state) => state.cooked)
+  useDocumentTitle('Recipes')
+  const { catalog } = useRecipes()
+  const { ctx } = useTasteSetup()
+  const { scores } = useScoreLookup(ctx)
+  const { filters, patch, navigate, toggleFacet, reset } = useRecipeFilters()
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [copyFallback, setCopyFallback] = useState('')
+
+  const favorites = useCookbookStore((state) => state.favorites)
+  const cooked = useCookbookStore((state) => state.cooked)
   const favoriteIds = useMemo(
-    () => new Set(Object.keys(favorites) as CatalogRecipe['id'][]),
+    () => new Set(Object.keys(favorites) as RecipeId[]),
     [favorites],
   )
   const cookedIds = useMemo(
-    () => new Set(Object.keys(cooked) as CatalogRecipe['id'][]),
+    () => new Set(Object.keys(cooked) as RecipeId[]),
     [cooked],
   )
-  const { ctx } = useTasteSetup()
-  const { scores } = useScoreLookup(ctx)
-  const facets = useMemo(() => catalogFacets(catalog), [catalog])
-  const filters = useMemo<BrowseState>(
-    () => ({
-      q: params.get('q') ?? '',
-      cuisines: params.getAll('cuisine'),
-      meals: params.getAll('meal'),
-      tags: params.getAll('tag'),
-      difficulty: params.get('difficulty') ?? undefined,
-      time: Number(params.get('time')) || undefined,
-      calories: Number(params.get('calories')) || undefined,
-      favorites: params.has('favorites'),
-      cooked: params.has('cooked'),
-      mine: params.has('mine'),
-      sort: params.get('sort') ?? 'recommended',
-    }),
-    [params],
+  const extras = useMemo(
+    () => ({ favorites: favoriteIds, cooked: cookedIds, scores }),
+    [favoriteIds, cookedIds, scores],
   )
-  const deferredFilters = useDeferredValue(filters)
-  const result = applyBrowse(catalog, deferredFilters, {
-    favorites: favoriteIds,
-    cooked: cookedIds,
-    scores,
-  })
-  const page = Math.max(1, Number(params.get('page')) || 1)
-  const pageCount = Math.max(1, Math.ceil(result.length / PAGE_SIZE))
-  const visible = result.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const count = activeFilterCount(filters)
 
-  const setValue = (key: string, value: string, replace = false) => {
-    const next = new URLSearchParams(params)
-    if (value) next.set(key, value)
-    else next.delete(key)
-    if (key !== 'page') next.delete('page')
-    setParams(next, { replace })
-  }
-  const toggleValue = (key: string, value: string) => {
-    const next = new URLSearchParams(params)
-    const current = next.getAll(key)
-    next.delete(key)
-    for (const item of current.filter((item) => item !== value))
-      next.append(key, item)
-    if (!current.includes(value)) next.append(key, value)
-    next.delete('page')
-    setParams(next)
-  }
-  const reset = () => setParams(new URLSearchParams())
+  const facets = useMemo(() => catalogFacets(catalog), [catalog])
+  const deferredFilters = useDeferredValue(filters)
+  const result = applyBrowse(catalog, deferredFilters, extras)
+  const pageCount = Math.max(1, Math.ceil(result.length / PAGE_SIZE))
+  const page = Math.min(filters.page, pageCount)
+  const visible = result.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const active = activeFilterCount(filters)
+
+  const facetCounts = useMemo(() => {
+    const count = (key: 'cuisines' | 'meals' | 'tags', value: string) => {
+      const relaxed = { ...deferredFilters, [key]: undefined }
+      return applyBrowse(catalog, relaxed, extras).filter((item) =>
+        key === 'cuisines'
+          ? item.recipe.cuisine === value
+          : key === 'meals'
+            ? item.recipe.mealType.includes(value)
+            : item.recipe.tags.includes(value),
+      ).length
+    }
+    return {
+      cuisines: new Map(
+        facets.cuisines.map((value) => [value, count('cuisines', value)]),
+      ),
+      meals: new Map(
+        facets.meals.map((value) => [value, count('meals', value)]),
+      ),
+      tags: new Map(facets.tags.map((value) => [value, count('tags', value)])),
+    }
+  }, [catalog, deferredFilters, extras, facets])
+
   const share = async () => {
     const url = window.location.href
-    try {
-      await navigator.clipboard.writeText(url)
-    } catch {
-      window.prompt('Copy this recipe search link', url)
+    if (await copyText(url)) toast.success('Search link copied')
+    else {
+      toast.error('Could not copy the link')
+      setCopyFallback(url)
     }
   }
-  const filterPanel = (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-      <fieldset className="space-y-2">
-        <legend className="mb-2 text-xs font-semibold">Cuisine</legend>
-        <div className="flex flex-wrap gap-2">
-          {facets.cuisines.map((item) => (
-            <FilterChip
-              key={item}
-              active={filters.cuisines?.includes(item) ?? false}
-              onClick={() => toggleValue('cuisine', item)}>
-              {item}
-            </FilterChip>
-          ))}
-        </div>
-      </fieldset>
-      <fieldset className="space-y-2">
-        <legend className="mb-2 text-xs font-semibold">Meal type</legend>
-        <div className="flex flex-wrap gap-2">
-          {facets.meals.map((item) => (
-            <FilterChip
-              key={item}
-              active={filters.meals?.includes(item) ?? false}
-              onClick={() => toggleValue('meal', item)}>
-              {item}
-            </FilterChip>
-          ))}
-        </div>
-      </fieldset>
-      <fieldset className="space-y-2">
-        <legend className="mb-2 text-xs font-semibold">Tags</legend>
-        <div className="flex max-h-28 flex-wrap gap-2 overflow-y-auto">
-          {facets.tags.slice(0, 24).map((item) => (
-            <FilterChip
-              key={item}
-              active={filters.tags?.includes(item) ?? false}
-              onClick={() => toggleValue('tag', item)}>
-              {item}
-            </FilterChip>
-          ))}
-        </div>
-      </fieldset>
+
+  const goPage = (next: number) => {
+    navigate({ page: next })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const panel = (
+    <div className="space-y-6">
+      <AccordionSection
+        title="Cuisine"
+        badge={filters.cuisines.length}
+        defaultOpen>
+        {facets.cuisines.map((item) => (
+          <Chip
+            key={item}
+            active={filters.cuisines.includes(item)}
+            count={facetCounts.cuisines.get(item)}
+            onClick={() => toggleFacet('cuisine', item)}>
+            {item}
+          </Chip>
+        ))}
+      </AccordionSection>
+
+      <AccordionSection
+        title="Meal type"
+        badge={filters.meals.length}
+        defaultOpen>
+        {facets.meals.map((item) => (
+          <Chip
+            key={item}
+            active={filters.meals.includes(item)}
+            count={facetCounts.meals.get(item)}
+            onClick={() => toggleFacet('meal', item)}>
+            {item}
+          </Chip>
+        ))}
+      </AccordionSection>
+
+      <AccordionSection title="Tags" badge={filters.tags.length}>
+        {facets.tags.map((item) => (
+          <Chip
+            key={item}
+            active={filters.tags.includes(item)}
+            count={facetCounts.tags.get(item)}
+            onClick={() => toggleFacet('tag', item)}>
+            {item}
+          </Chip>
+        ))}
+      </AccordionSection>
+
       <div className="grid grid-cols-2 gap-3">
         <label className="space-y-2 text-xs font-semibold">
           Difficulty
           <NativeSelect
-            className="w-full bg-background"
-            aria-label="Difficulty"
+            className="w-full"
             value={filters.difficulty ?? ''}
-            onChange={(event) => setValue('difficulty', event.target.value)}>
+            onChange={(event) =>
+              patch({ difficulty: event.target.value || null })
+            }>
             <NativeSelectOption value="">Any</NativeSelectOption>
-            {['Easy', 'Medium', 'Hard'].map((value) => (
-              <NativeSelectOption key={value}>{value}</NativeSelectOption>
+            {DIFFICULTIES.map((value) => (
+              <NativeSelectOption key={value} value={value}>
+                {value}
+              </NativeSelectOption>
             ))}
           </NativeSelect>
         </label>
         <label className="space-y-2 text-xs font-semibold">
           Max time
           <NativeSelect
-            className="w-full bg-background"
-            aria-label="Maximum time"
+            className="w-full"
             value={filters.time ?? ''}
-            onChange={(event) => setValue('time', event.target.value)}>
+            onChange={(event) => patch({ time: event.target.value || null })}>
             <NativeSelectOption value="">Any</NativeSelectOption>
-            {[15, 30, 45, 60, 90].map((value) => (
+            {TIMES.map((value) => (
               <NativeSelectOption key={value} value={value}>
                 ≤ {value} min
               </NativeSelectOption>
@@ -190,176 +199,201 @@ export default function Browse() {
           </NativeSelect>
         </label>
       </div>
-      <label className="space-y-2 text-xs font-semibold">
+
+      <label className="block space-y-2 text-xs font-semibold">
         Max calories
         <NativeSelect
-          className="w-full bg-background"
-          aria-label="Maximum calories"
+          className="w-full"
           value={filters.calories ?? ''}
-          onChange={(event) => setValue('calories', event.target.value)}>
+          onChange={(event) => patch({ calories: event.target.value || null })}>
           <NativeSelectOption value="">Any</NativeSelectOption>
-          {[200, 300, 400, 500].map((value) => (
+          {CALORIES.map((value) => (
             <NativeSelectOption key={value} value={value}>
               ≤ {value} kcal
             </NativeSelectOption>
           ))}
         </NativeSelect>
       </label>
-      <fieldset className="space-y-2">
-        <legend className="mb-2 text-xs font-semibold">Show only</legend>
-        <div className="flex flex-wrap gap-2">
-          <FilterChip
-            active={!!filters.favorites}
-            onClick={() => setValue('favorites', filters.favorites ? '' : '1')}>
-            Favorites
-          </FilterChip>
-          <FilterChip
-            active={!!filters.cooked}
-            onClick={() => setValue('cooked', filters.cooked ? '' : '1')}>
-            Cooked
-          </FilterChip>
-          <FilterChip
-            active={!!filters.mine}
-            onClick={() => setValue('mine', filters.mine ? '' : '1')}>
-            My recipes
-          </FilterChip>
-        </div>
-      </fieldset>
+
+      <AccordionSection
+        title="Show only"
+        badge={
+          Number(filters.favorites) +
+          Number(filters.cooked) +
+          Number(filters.mine)
+        }
+        defaultOpen>
+        <Chip
+          active={filters.favorites}
+          onClick={() => patch({ favorites: !filters.favorites })}>
+          Favourites
+        </Chip>
+        <Chip
+          active={filters.cooked}
+          onClick={() => patch({ cooked: !filters.cooked })}>
+          Cooked
+        </Chip>
+        <Chip
+          active={filters.mine}
+          onClick={() => patch({ mine: !filters.mine })}>
+          My recipes
+        </Chip>
+      </AccordionSection>
+
+      <div className="flex items-center justify-between border-t border-border pt-4">
+        <span className="text-xs text-muted-foreground">
+          {active} active {active === 1 ? 'filter' : 'filters'}
+        </span>
+        <Button variant="ghost" size="sm" onClick={reset}>
+          <X size={14} /> Reset
+        </Button>
+      </div>
     </div>
   )
 
   return (
     <PageLayout>
-      <PageTitle
+      <PageHeader
         eyebrow="THE RECIPE BOX"
         title="Find your next favorite."
         sub="A collection for real life, real cravings, and whatever is left in the fridge."
       />
+
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <label className="flex h-12 min-w-60 flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-muted-foreground">
-          <Search size={18} />
+        <label className="flex h-11 min-w-60 flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-muted-foreground">
+          <Search size={18} aria-hidden="true" />
           <span className="sr-only">Search recipes</span>
           <Input
             className="h-auto min-w-20 flex-1 rounded-none border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0"
-            value={filters.q ?? ''}
-            onChange={(event) => setValue('q', event.target.value, true)}
+            value={filters.q}
+            onChange={(event) => patch({ q: event.target.value })}
             placeholder="Search dishes, ingredients, cuisines…"
           />
         </label>
         <NativeSelect
-          className="h-12 min-w-40 rounded-xl bg-card text-sm"
+          className="h-11 min-w-44 rounded-xl border-border bg-card text-sm"
           aria-label="Sort recipes"
           value={filters.sort}
-          onChange={(event) => setValue('sort', event.target.value)}>
-          <NativeSelectOption value="recommended">
-            Recommended
-          </NativeSelectOption>
-          <NativeSelectOption value="name-asc">Name A–Z</NativeSelectOption>
-          <NativeSelectOption value="name-desc">Name Z–A</NativeSelectOption>
-          <NativeSelectOption value="rating-desc">
-            Rating: high to low
-          </NativeSelectOption>
-          <NativeSelectOption value="rating-asc">
-            Rating: low to high
-          </NativeSelectOption>
-          <NativeSelectOption value="time-asc">
-            Time: shortest
-          </NativeSelectOption>
-          <NativeSelectOption value="time-desc">
-            Time: longest
-          </NativeSelectOption>
-          <NativeSelectOption value="calories-asc">
-            Calories: lowest
-          </NativeSelectOption>
-          <NativeSelectOption value="calories-desc">
-            Calories: highest
-          </NativeSelectOption>
+          onChange={(event) => patch({ sort: event.target.value })}>
+          {BROWSE_SORTS.map((value) => (
+            <NativeSelectOption key={value} value={value}>
+              {SORT_LABELS[value]}
+            </NativeSelectOption>
+          ))}
         </NativeSelect>
         <Button
           variant="outline"
-          className="h-12 md:hidden"
-          onClick={() => setMobileFilters((value) => !value)}
-          aria-expanded={mobileFilters}>
-          <SlidersHorizontal size={16} /> Filters{' '}
-          {count > 0 && (
+          className="h-11 lg:hidden"
+          onClick={() => setSheetOpen(true)}
+          aria-expanded={sheetOpen}>
+          <SlidersHorizontal size={16} aria-hidden="true" /> Filters
+          {active > 0 && (
             <span className="rounded-full bg-secondary px-2 py-0.5 text-xs">
-              {count}
+              {active}
             </span>
           )}
         </Button>
-        <Button variant="outline" className="h-12" onClick={() => void share()}>
-          <Share2 size={16} />
+        <Button variant="outline" className="h-11" onClick={() => void share()}>
+          <Share2 size={16} aria-hidden="true" />
           <span className="hidden sm:inline">Share link</span>
         </Button>
       </div>
-      <Card
-        className={`${mobileFilters ? 'block' : 'hidden'} mb-6 rounded-2xl p-5 md:block`}>
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="font-heading text-xl">Refine your search</h2>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground">
-              {count} active
+
+      <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="hidden lg:block">
+          <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="mb-4 font-heading text-xl">Refine</h2>
+            {panel}
+          </div>
+        </aside>
+
+        <div id="browse-results">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+            <span>
+              <b className="text-foreground">{result.length}</b>{' '}
+              {result.length === 1 ? 'recipe' : 'recipes'}{' '}
+              {active ? 'match your filters' : 'to explore'}
             </span>
-            <Button variant="ghost" size="sm" onClick={reset}>
+            <span>
+              Showing {result.length ? (page - 1) * PAGE_SIZE + 1 : 0}–
+              {Math.min(page * PAGE_SIZE, result.length)} of {result.length}
+            </span>
+          </div>
+
+          {visible.length ? (
+            <RecipeGrid items={visible} scores={scores} />
+          ) : (
+            <EmptyState
+              glyph="🥣"
+              title="No recipes found."
+              body={
+                active
+                  ? 'Try a broader search or clear a filter to see more ideas.'
+                  : 'The catalogue is still arriving. Check your connection and try again.'
+              }
+              actions={
+                active ? (
+                  <Button onClick={reset}>Clear all filters</Button>
+                ) : (
+                  <ButtonLink href="/recipes">Refresh</ButtonLink>
+                )
+              }
+            />
+          )}
+
+          {pageCount > 1 && (
+            <nav
+              aria-label="Recipe pages"
+              className="mt-8 flex items-center justify-center gap-4">
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={page <= 1}
+                aria-label="Previous page"
+                onClick={() => goPage(page - 1)}>
+                <ChevronLeft aria-hidden="true" />
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {page} of {pageCount}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={page >= pageCount}
+                aria-label="Next page"
+                onClick={() => goPage(page + 1)}>
+                <ChevronRight aria-hidden="true" />
+              </Button>
+            </nav>
+          )}
+        </div>
+      </div>
+
+      <Dialog
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        title="Refine your search"
+        description={`${result.length} recipes match right now.`}
+        className="max-h-[85vh] overflow-y-auto"
+        footer={
+          <>
+            <Button variant="outline" onClick={reset}>
               Reset
             </Button>
-          </div>
-        </div>
-        {filterPanel}
-      </Card>
-      <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          <b className="text-foreground">{result.length}</b> recipes{' '}
-          {count ? 'match your filters' : 'to explore'}
-        </span>
-        <span>
-          Showing {result.length ? (page - 1) * PAGE_SIZE + 1 : 0}–
-          {Math.min(page * PAGE_SIZE, result.length)} of {result.length}
-        </span>
-      </div>
-      {visible.length ? (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {visible.map((item) => (
-            <RecipeCard key={item.id} item={item} />
-          ))}
-        </div>
-      ) : (
-        <Card className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-2xl border-dashed p-8 text-center shadow-none">
-          <span className="text-3xl" aria-hidden="true">
-            🥣
-          </span>
-          <h2 className="font-heading text-2xl">No recipes found.</h2>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Try a broader search or clear a filter to see more ideas.
-          </p>
-          <Button onClick={reset}>Clear filters</Button>
-        </Card>
-      )}
-      {pageCount > 1 && (
-        <nav
-          aria-label="Recipe pages"
-          className="mt-8 flex items-center justify-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={page <= 1}
-            aria-label="Previous page"
-            onClick={() => setValue('page', String(page - 1))}>
-            <ChevronLeft />
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {page} of {pageCount}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={page >= pageCount}
-            aria-label="Next page"
-            onClick={() => setValue('page', String(page + 1))}>
-            <ChevronRight />
-          </Button>
-        </nav>
-      )}
+            <Button onClick={() => setSheetOpen(false)}>
+              Show {result.length} recipes
+            </Button>
+          </>
+        }>
+        {panel}
+      </Dialog>
+
+      <CopyFallbackDialog
+        open={Boolean(copyFallback)}
+        onOpenChange={(open) => !open && setCopyFallback('')}
+        value={copyFallback}
+        title="Copy this search link"
+      />
     </PageLayout>
   )
 }

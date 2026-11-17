@@ -1,9 +1,14 @@
-import { Suspense, useEffect, useMemo } from 'react'
+import { Suspense, useEffect } from 'react'
 import { Outlet, useNavigation } from 'react-router'
-import { queryOptions, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Leaf } from 'lucide-react'
-import { apiError, fetchRecipes, fetchTags } from './lib/api'
-import { useKitchenStore } from './stores/kitchen'
+import { apiError } from './lib/api'
+import { catalogQueryOptions } from './lib/queries'
+import { useCompareStore } from './stores/compare'
+import { useCookbookStore } from './stores/cookbook'
+import { useCreationsStore } from './stores/creations'
+import { usePantryStore } from './stores/pantry'
+import { usePlannerStore } from './stores/planner'
 import { useProfileStore } from './stores/profile'
 import { useThemeStore } from './stores/theme'
 import { Shell } from './components/app-shared'
@@ -11,58 +16,29 @@ import { Alert, AlertDescription } from './components/ui/alert'
 import { Button } from './components/ui/button'
 import { Skeleton } from './components/ui/skeleton'
 
+const rehydrateAll = () => {
+  void useCookbookStore.persist.rehydrate()
+  void usePantryStore.persist.rehydrate()
+  void usePlannerStore.persist.rehydrate()
+  void useCompareStore.persist.rehydrate()
+  void useCreationsStore.persist.rehydrate()
+  void useProfileStore.persist.rehydrate()
+  void useThemeStore.persist.rehydrate()
+}
+
 export default function App() {
+  // Every persisted store reads the same seven keys, so one listener keeps the
+  // whole app in step with edits made in another tab.
   useEffect(() => {
     const sync = (event: StorageEvent) => {
-      if (!event.key?.startsWith('savorly.')) return
-      void useKitchenStore.persist.rehydrate()
-      void useProfileStore.persist.rehydrate()
-      void useThemeStore.persist.rehydrate()
+      if (event.key === null || event.key.startsWith('savorly.')) rehydrateAll()
     }
     window.addEventListener('storage', sync)
     return () => window.removeEventListener('storage', sync)
   }, [])
 
   const navigation = useNavigation()
-
-  const catalogQuery = useQuery(
-    queryOptions({
-      queryKey: ['catalog'],
-      queryFn: ({ signal }) => fetchRecipes(signal),
-      staleTime: Infinity,
-      refetchOnWindowFocus: false,
-    }),
-  )
-  useQuery(
-    queryOptions({
-      queryKey: ['tags'],
-      queryFn: ({ signal }) => fetchTags(signal),
-      staleTime: Infinity,
-      refetchOnWindowFocus: false,
-    }),
-  )
-
-  const creations = useKitchenStore((state) => state.creations)
-  const apiCatalog = useMemo(
-    () =>
-      catalogQuery.data?.recipes.map((recipe) => ({
-        id: `api-${recipe.id}` as const,
-        source: 'api' as const,
-        recipe,
-      })) ?? [],
-    [catalogQuery.data?.recipes],
-  )
-  const catalog = useMemo(
-    () => [
-      ...creations.map((creation) => ({
-        id: creation.catalogId,
-        source: 'mine' as const,
-        recipe: creation.recipe,
-      })),
-      ...apiCatalog,
-    ],
-    [apiCatalog, creations],
-  )
+  const catalogQuery = useQuery(catalogQueryOptions)
 
   if (catalogQuery.isLoading) {
     return (
@@ -86,10 +62,11 @@ export default function App() {
       {catalogQuery.isError && (
         <Alert
           variant="destructive"
-          className="relative z-[5] flex items-center justify-center gap-3 rounded-none border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+          className="relative z-[5] flex flex-wrap items-center justify-center gap-3 rounded-none border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
           <AlertDescription className="text-current">
             Could not load the recipe catalogue from DummyJSON.{' '}
-            {apiError(catalogQuery.error)}
+            {apiError(catalogQuery.error)} Check your connection and try again.
+            Your local kitchen data still works.
           </AlertDescription>
           <Button
             variant="ghost"
@@ -102,7 +79,7 @@ export default function App() {
       <Shell>
         {navigation.state !== 'idle' && (
           <div
-            className="fixed inset-x-0 top-0 z-[80] h-1 animate-pulse bg-primary"
+            className="fixed inset-x-0 top-0 z-[80] h-1 animate-pulse bg-primary print:hidden"
             role="progressbar"
             aria-label="Loading page"
             aria-valuetext="Loading"
@@ -117,7 +94,7 @@ export default function App() {
               />
             </main>
           }>
-          <Outlet context={catalog} />
+          <Outlet />
         </Suspense>
       </Shell>
     </>

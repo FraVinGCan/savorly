@@ -66,12 +66,23 @@ npx uipro-cli init --ai opencode && npx uipro-cli init --ai codex
 
 ```
 src/
-├── App.tsx                 # Root component
-├── main.tsx                # Entry point, providers and router setup
+├── App.tsx                 # App shell: catalogue states and cross-tab sync
+├── main.tsx                # Entry point: providers and router
+├── router.ts               # Route table and breadcrumb handles
 ├── components/
-│   └── ui/                 # shadcn/ui components
-├── lib/
-│   └── utils.ts            # Shared helpers
+│   ├── ui/                 # shadcn/ui primitives
+│   ├── app-shared.tsx      # Navigation shell, page layout, recipe cards
+│   └── primitives.tsx      # Shared app UI: badges, dialogs, empty states
+├── domain/                 # Pure logic: scoring, pantry, taste, week maths
+├── hooks/                  # Shared queries, personalisation and URL filters
+├── lib/                    # API client, queries, storage, formatting, clipboard
+├── pages/                  # One module per route
+├── schemas/                # Zod 4 form schemas
+├── stores/                 # Persisted Zustand stores
 └── css/
-    └── main.css            # Global styles
+    └── main.css            # Theme tokens and global styles
 ```
+
+Kitchen data is local-first: each store persists under its own `savorly.*` key,
+and the UI never writes to the recipe service except the creation
+normalisation round-trip.
