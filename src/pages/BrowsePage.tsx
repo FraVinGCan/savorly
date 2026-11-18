@@ -59,7 +59,7 @@ export default function Browse() {
   useDocumentTitle('Recipes')
   const { catalog } = useRecipes()
   const { ctx } = useTasteSetup()
-  const { scores } = useScoreLookup(ctx)
+  const { scores, evaluations } = useScoreLookup(ctx)
   const { filters, patch, navigate, toggleFacet, reset } = useRecipeFilters()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [copyFallback, setCopyFallback] = useState('')
@@ -321,7 +321,7 @@ export default function Browse() {
           </div>
 
           {visible.length ? (
-            <RecipeGrid items={visible} scores={scores} />
+            <RecipeGrid items={visible} evaluations={evaluations} />
           ) : (
             <EmptyState
               glyph="🥣"

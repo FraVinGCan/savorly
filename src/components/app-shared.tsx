@@ -11,6 +11,7 @@ import {
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 import {
   ArrowRight,
+  ArrowUp,
   Bookmark,
   Clock3,
   GitCompare,
@@ -216,6 +217,36 @@ function MobileDrawer({
   )
 }
 
+function BackToTop() {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const update = () => setVisible(window.scrollY > 80)
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    return () => window.removeEventListener('scroll', update)
+  }, [])
+
+  if (!visible) return null
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      className="fixed bottom-20 right-5 z-40 rounded-full shadow-lg print:hidden sm:right-6"
+      aria-label="Back to top"
+      onClick={() => {
+        const reduced = window.matchMedia(
+          '(prefers-reduced-motion: reduce)',
+        ).matches
+        window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' })
+      }}>
+      <ArrowUp size={18} aria-hidden="true" />
+    </Button>
+  )
+}
+
 export function Shell({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const location = useLocation()
@@ -223,6 +254,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const compareCount = useCompareStore((state) => state.ids.length)
   const toastCount = useToastStore((state) => state.toasts.length)
   const search = new URLSearchParams(location.search).get('q') ?? ''
+  const showTray = compareCount > 0 && location.pathname !== '/compare'
 
   // The tray is fixed and global; nudging a toast when it changes would be
   // noise, but the store subscription keeps the badge fresh across tabs.
@@ -321,7 +353,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </footer>
       <ScrollRestoration />
       <ToastViewport />
-      {compareCount > 0 && location.pathname !== '/compare' && (
+      {showTray && (
         <div className="fixed inset-x-4 bottom-4 z-30 mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-xl print:hidden sm:inset-x-auto sm:right-6">
           <span className="text-sm font-medium">
             {compareCount}/4 in your compare tray
@@ -331,6 +363,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </ButtonLink>
         </div>
       )}
+      <BackToTop />
     </div>
   )
 }
@@ -338,11 +371,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
 export function RecipeCard({
   item,
   evaluation,
-  score,
 }: {
   item: CatalogRecipe
   evaluation?: RecipeEvaluation
-  score?: number
 }) {
   const recipe = item.recipe
   const favorite = useCookbookStore((state) =>
@@ -350,6 +381,7 @@ export function RecipeCard({
   )
   const toggle = useCookbookStore((state) => state.toggleFavorite)
   const cooked = useCookbookStore((state) => state.cooked[item.id]?.count ?? 0)
+  const myRating = useCookbookStore((state) => state.ratings[item.id] ?? 0)
   return (
     <Card className="group/recipe relative gap-3 overflow-hidden rounded-2xl border border-border bg-card p-0 text-foreground shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg">
       <Link
@@ -364,6 +396,15 @@ export function RecipeCard({
             event.currentTarget.style.visibility = 'hidden'
           }}
         />
+        {evaluation?.personalized && (
+          <span className="absolute left-3 top-3">
+            <ScorePill
+              score={evaluation.score}
+              eligible={evaluation.eligible}
+              className="bg-background/95 shadow-sm ring-1 ring-black/5"
+            />
+          </span>
+        )}
         <span className="absolute bottom-3 left-3 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-medium">
           {recipe.cuisine}
         </span>
@@ -397,16 +438,8 @@ export function RecipeCard({
         />
       </Button>
       <CardContent className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-            {recipe.mealType[0] ?? 'Recipe'} · {recipe.difficulty}
-          </div>
-          {(evaluation || typeof score === 'number') && (
-            <ScorePill
-              score={evaluation?.score ?? score ?? 0}
-              eligible={evaluation?.eligible ?? true}
-            />
-          )}
+        <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          {recipe.mealType[0] ?? 'Recipe'} · {recipe.difficulty}
         </div>
         <Link
           to={`/recipes/${recipeSlug(item.id)}`}
@@ -418,9 +451,26 @@ export function RecipeCard({
             <Clock3 size={14} aria-hidden="true" />
             {recipe.prepTimeMinutes + recipe.cookTimeMinutes} min
           </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Star size={13} className="text-amber-600" aria-hidden="true" />
+          <span
+            className="inline-flex items-center gap-1.5"
+            title={
+              myRating
+                ? `Your rating: ${myRating}/5 · Community: ${recipe.rating.toFixed(1)}/5`
+                : `Community rating: ${recipe.rating.toFixed(1)}/5`
+            }>
+            <Star
+              size={13}
+              fill={myRating ? 'currentColor' : 'none'}
+              className="text-amber-600"
+              aria-hidden="true"
+            />
             {recipe.rating.toFixed(1)}
+            {myRating > 0 && (
+              <span className="sr-only">
+                {' '}
+                · You rated this {myRating} out of 5{' '}
+              </span>
+            )}
             {cooked > 0 && (
               <span className="text-[10px]">· cooked {cooked}×</span>
             )}
@@ -434,11 +484,9 @@ export function RecipeCard({
 export function RecipeGrid({
   items,
   evaluations,
-  scores,
 }: {
   items: CatalogRecipe[]
   evaluations?: Map<string, RecipeEvaluation>
-  scores?: Map<string, number>
 }) {
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -447,7 +495,6 @@ export function RecipeGrid({
           key={item.id}
           item={item}
           evaluation={evaluations?.get(item.id)}
-          score={scores?.get(item.id)}
         />
       ))}
     </div>

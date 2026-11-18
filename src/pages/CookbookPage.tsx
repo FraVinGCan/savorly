@@ -3,7 +3,9 @@ import { Bookmark, ChefHat, NotebookPen, Star } from 'lucide-react'
 import { useCookbookStore } from '../stores/cookbook'
 import { toast } from '../stores/toast'
 import { useRecipes } from '../hooks/useRecipes'
+import { useTasteSetup } from '../hooks/useTasteSetup'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { evaluateRecipe } from '../domain/scoring'
 import { average, formatDate, plural } from '../lib/format'
 import { PageHeader, PageLayout, RecipeCard } from '../components/app-shared'
 import {
@@ -30,6 +32,7 @@ const LABELS: Record<CookbookTab, string> = {
 
 export default function Cookbook() {
   useDocumentTitle('Cookbook')
+  const { ctx } = useTasteSetup()
   const { byId, get } = useRecipes()
   const favorites = useCookbookStore((state) => state.favorites)
   const cooked = useCookbookStore((state) => state.cooked)
@@ -99,7 +102,7 @@ export default function Cookbook() {
         }>
         {activeItems.map((item) => (
           <div key={item.id} className="space-y-2">
-            <RecipeCard item={item} />
+            <RecipeCard item={item} evaluation={evaluateRecipe(item, ctx)} />
             {tab === 'notes' && (
               <Card className="rounded-xl border border-border bg-card p-4 text-sm leading-6 shadow-none">
                 <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-foreground">

@@ -14,7 +14,7 @@ import { usePantryStore } from '../stores/pantry'
 import { usePlannerStore } from '../stores/planner'
 import { useProfileStore } from '../stores/profile'
 import { canCookNow, evaluatePantry, pantryTokens } from '../domain/pantry'
-import { rankRecipes } from '../domain/scoring'
+import { evaluateRecipe, rankRecipes } from '../domain/scoring'
 import { WEEKDAYS, weekKey } from '../domain/week'
 import { useRecipes } from '../hooks/useRecipes'
 import { useTasteSetup } from '../hooks/useTasteSetup'
@@ -267,7 +267,11 @@ export default function Home() {
         />
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {shortlist.map((item) => (
-            <RecipeCard key={item.id} item={item} />
+            <RecipeCard
+              key={item.id}
+              item={item}
+              evaluation={evaluateRecipe(item, ctx)}
+            />
           ))}
         </div>
       </section>
@@ -288,7 +292,11 @@ export default function Home() {
         {ready.length ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {ready.slice(0, 4).map((item) => (
-              <RecipeCard key={item.id} item={item} />
+              <RecipeCard
+                key={item.id}
+                item={item}
+                evaluation={evaluateRecipe(item, ctx)}
+              />
             ))}
           </div>
         ) : (
@@ -385,7 +393,11 @@ export default function Home() {
           />
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {creations.slice(0, 4).map((item) => (
-              <RecipeCard key={item.id} item={item} />
+              <RecipeCard
+                key={item.id}
+                item={item}
+                evaluation={evaluateRecipe(item, ctx)}
+              />
             ))}
           </div>
         </section>

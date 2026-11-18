@@ -1,6 +1,6 @@
 import { useId, useState, type ComponentProps, type ReactNode } from 'react'
 import { Link } from 'react-router'
-import { Check, ChevronDown, Copy, Star } from 'lucide-react'
+import { Ban, Check, ChevronDown, Copy, Sparkles, Star } from 'lucide-react'
 import { cn } from 'cn'
 import { Button } from './ui/button'
 import { buttonVariants, type ButtonVariantProps } from './ui/button-variants'
@@ -25,15 +25,18 @@ export function Badge({
   icon,
   children,
   className,
+  title,
 }: {
   tone?: BadgeTone
   glyph?: string
   icon?: ReactNode
   children: ReactNode
   className?: string
+  title?: string
 }) {
   return (
     <span
+      title={title}
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium leading-none',
         badgeTones[tone],
@@ -370,19 +373,33 @@ export function ScoreRing({
 export function ScorePill({
   score,
   eligible = true,
+  className,
 }: {
   score: number
   eligible?: boolean
+  className?: string
 }) {
   if (!eligible)
     return (
-      <Badge tone="red" className="text-[10px]">
+      <Badge
+        tone="red"
+        className={cn('whitespace-nowrap text-[10px]', className)}
+        title="Excluded by your taste preferences"
+        icon={<Ban size={11} aria-hidden="true" />}>
         Off-menu
+        <span className="sr-only"> by your taste preferences</span>
       </Badge>
     )
+  const tier = scoreTier(score)
   return (
-    <Badge tone={score >= 60 ? 'brand' : 'neutral'} className="text-[10px]">
-      {score} · {scoreTier(score)}
+    <Badge
+      tone={score >= 60 ? 'brand' : 'neutral'}
+      className={cn('whitespace-nowrap text-[10px]', className)}
+      title={`Personal match: ${score} out of 100 — ${tier}`}
+      icon={<Sparkles size={11} aria-hidden="true" />}>
+      <span className="sr-only">Personal match: </span>
+      {score} · {tier}
+      <span className="sr-only"> out of 100</span>
     </Badge>
   )
 }

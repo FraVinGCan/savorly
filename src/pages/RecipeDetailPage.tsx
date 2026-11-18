@@ -575,7 +575,11 @@ export default function RecipeDetail() {
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {related.map((candidate) => (
-              <RecipeCard key={candidate.id} item={candidate} />
+              <RecipeCard
+                key={candidate.id}
+                item={candidate}
+                evaluation={evaluateRecipe(candidate, ctx)}
+              />
             ))}
           </div>
         </section>
