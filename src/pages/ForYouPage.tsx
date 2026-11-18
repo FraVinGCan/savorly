@@ -27,6 +27,7 @@ import { Card } from '../components/ui/card'
 import { TabGroup } from '../components/ui/tabs'
 import { GOAL_LABELS, SPICE_LABELS } from '../lib/format'
 import type { CatalogRecipe } from '../types/recipe'
+import { recipeSlug } from '../types/recipe'
 
 type RecommendationTab = 'top' | 'quick' | 'pantry' | 'off-menu'
 
@@ -185,7 +186,7 @@ export default function ForYouPage() {
             </span>
             <h2 className="mt-1 font-heading text-2xl">
               <Link
-                to={`/recipes/${surprise.id}`}
+                to={`/recipes/${recipeSlug(surprise.id)}`}
                 className="hover:text-primary">
                 {surprise.recipe.name}
               </Link>
@@ -198,7 +199,9 @@ export default function ForYouPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <ButtonLink to={`/recipes/${surprise.id}`}>Open recipe</ButtonLink>
+            <ButtonLink to={`/recipes/${recipeSlug(surprise.id)}`}>
+              Open recipe
+            </ButtonLink>
             <Button variant="ghost" onClick={() => setSurprise(null)}>
               Dismiss
             </Button>
@@ -227,7 +230,7 @@ export default function ForYouPage() {
                               #{index + 1} · {scoreTier(item.evaluation.score)}
                             </span>
                             <Link
-                              to={`/recipes/${item.id}`}
+                              to={`/recipes/${recipeSlug(item.id)}`}
                               className="mt-1 block font-heading text-xl leading-tight hover:text-primary">
                               {item.recipe.name}
                             </Link>

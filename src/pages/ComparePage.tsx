@@ -28,6 +28,7 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { TabGroup } from '../components/ui/tabs'
 import type { CatalogRecipe, RecipeId } from '../types/recipe'
+import { recipeSlug } from '../types/recipe'
 
 type CompareTab = 'side' | 'ingredients' | 'method'
 
@@ -356,7 +357,7 @@ export default function ComparePage() {
               </Button>
               <div className="p-3">
                 <Link
-                  to={`/recipes/${item.id}`}
+                  to={`/recipes/${recipeSlug(item.id)}`}
                   className="line-clamp-2 font-heading text-lg leading-tight hover:text-primary">
                   {item.recipe.name}
                 </Link>
@@ -417,7 +418,7 @@ export default function ComparePage() {
                               scope="col"
                               className="border-b border-border p-3 align-bottom">
                               <Link
-                                to={`/recipes/${item.id}`}
+                                to={`/recipes/${recipeSlug(item.id)}`}
                                 className="font-heading text-base hover:text-primary">
                                 {item.recipe.name}
                               </Link>
@@ -501,7 +502,7 @@ export default function ComparePage() {
                                 scope="col"
                                 className="border-b border-border p-3 text-center align-bottom">
                                 <Link
-                                  to={`/recipes/${item.id}`}
+                                  to={`/recipes/${recipeSlug(item.id)}`}
                                   className="font-heading text-base hover:text-primary">
                                   {item.recipe.name}
                                 </Link>
@@ -586,7 +587,7 @@ export default function ComparePage() {
                     className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <Link
-                        to={`/recipes/${item.id}`}
+                        to={`/recipes/${recipeSlug(item.id)}`}
                         className="font-heading text-xl hover:text-primary">
                         {item.recipe.name}
                       </Link>

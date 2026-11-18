@@ -45,6 +45,19 @@ export const isMineId = (id: string): id is `mine-${string}` =>
 export const numericId = (id: RecipeId): number =>
   Number(id.replace(/^api-/, '')) || 0
 
+/** Public URL slug: the recipe number for the catalogue, the UUID for creations. */
+export const recipeSlug = (id: RecipeId): string =>
+  id.startsWith('api-') ? id.slice(4) : id.slice(5)
+
+/** Resolves a route slug to a catalogue id, accepting older prefixed links. */
+export const recipeIdFromSlug = (
+  slug: string | undefined,
+): RecipeId | undefined => {
+  if (!slug) return undefined
+  if (isApiId(slug) || isMineId(slug)) return slug as RecipeId
+  return (/^\d+$/.test(slug) ? `api-${slug}` : `mine-${slug}`) as RecipeId
+}
+
 const imagePalette = [
   'f2e8d5',
   'dce7d0',

@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import {
-  BarChart3,
   Bookmark,
   ChefHat,
   Compass,
@@ -16,8 +15,7 @@ import {
   profileConflicts,
   type TasteProfile,
 } from '../domain/taste'
-import { average, median, plural } from '../lib/format'
-import { STORAGE_KEYS } from '../lib/storage'
+import { average, plural } from '../lib/format'
 import { addWeeks, startOfWeek, weekKey, WEEKDAYS } from '../domain/week'
 import { useCookbookStore } from '../stores/cookbook'
 import { usePantryStore } from '../stores/pantry'
@@ -38,8 +36,9 @@ import {
 import { Card } from '../components/ui/card'
 import { GOAL_LABELS, SPICE_LABELS } from '../lib/format'
 import type { CatalogRecipe, RecipeId } from '../types/recipe'
+import { recipeSlug } from '../types/recipe'
 
-const DONUT_COLOURS = [
+const CHART_COLOURS = [
   'var(--color-primary, #49633d)',
   '#c2865a',
   '#7b9c8b',
@@ -50,7 +49,7 @@ const DONUT_COLOURS = [
   '#9c8a6d',
 ]
 
-function LineChart({ values }: { values: number[] }) {
+function AreaChart({ values }: { values: number[] }) {
   const width = 320
   const height = 110
   const max = Math.max(1, ...values)
@@ -60,6 +59,11 @@ function LineChart({ values }: { values: number[] }) {
     return { x, y, value }
   })
   const line = points.map((point) => `${point.x},${point.y}`).join(' ')
+  const area = [
+    `${points[0]?.x ?? 12},${height - 14}`,
+    ...points.map((point) => `${point.x},${point.y}`),
+    `${points[points.length - 1]?.x ?? width - 12},${height - 14}`,
+  ].join(' ')
   return (
     <figure className="space-y-2">
       <svg
@@ -75,6 +79,12 @@ function LineChart({ values }: { values: number[] }) {
           stroke="currentColor"
           className="opacity-20"
           strokeWidth="1"
+        />
+        <polygon
+          points={area}
+          fill="currentColor"
+          fillOpacity="0.16"
+          stroke="none"
         />
         <polyline
           points={line}
@@ -134,8 +144,14 @@ function HeatStrip({ weeks }: { weeks: string[][] }) {
 
 function Donut({
   entries,
+  centreValue,
+  centreLabel,
+  ariaLabel,
 }: {
   entries: { label: string; value: number; colour: string }[]
+  centreValue: string
+  centreLabel: string
+  ariaLabel: string
 }) {
   const total = entries.reduce((sum, entry) => sum + entry.value, 0) || 1
   const radius = 42
@@ -152,33 +168,43 @@ function Donut({
   }))
   return (
     <div className="flex flex-wrap items-center gap-5">
-      <svg
-        viewBox="0 0 110 110"
-        className="size-28 shrink-0 -rotate-90"
-        role="img"
-        aria-label="Recipes by cuisine">
-        <circle
-          cx="55"
-          cy="55"
-          r={radius}
-          fill="none"
-          stroke="var(--color-muted, rgba(0,0,0,0.06))"
-          strokeWidth="12"
-        />
-        {slices.map(({ entry, length, offset }) => (
+      <div className="relative size-28 shrink-0">
+        <svg
+          viewBox="0 0 110 110"
+          className="size-full -rotate-90"
+          role="img"
+          aria-label={ariaLabel}>
           <circle
-            key={entry.label}
             cx="55"
             cy="55"
             r={radius}
             fill="none"
-            stroke={entry.colour}
+            stroke="var(--color-muted, rgba(0,0,0,0.06))"
             strokeWidth="12"
-            strokeDasharray={`${length} ${circumference - length}`}
-            strokeDashoffset={-offset}
           />
-        ))}
-      </svg>
+          {slices.map(({ entry, length, offset }) => (
+            <circle
+              key={entry.label}
+              cx="55"
+              cy="55"
+              r={radius}
+              fill="none"
+              stroke={entry.colour}
+              strokeWidth="12"
+              strokeDasharray={`${length} ${circumference - length}`}
+              strokeDashoffset={-offset}
+            />
+          ))}
+        </svg>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="font-heading text-lg leading-none">
+            {centreValue}
+          </span>
+          <span className="mt-0.5 text-[10px] text-muted-foreground">
+            {centreLabel}
+          </span>
+        </div>
+      </div>
       <ul className="min-w-0 flex-1 space-y-1.5 text-xs">
         {entries.map((entry) => (
           <li
@@ -191,12 +217,98 @@ function Donut({
               />
               <span className="truncate">{entry.label}</span>
             </span>
-            <span className="tabular-nums text-muted-foreground">
-              {entry.value}
+            <span className="shrink-0 tabular-nums text-muted-foreground">
+              {entry.value} · {Math.round((entry.value / total) * 100)}%
             </span>
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+function StackedBar({
+  segments,
+  ariaLabel,
+}: {
+  segments: { label: string; value: number; colour: string }[]
+  ariaLabel: string
+}) {
+  const total = segments.reduce((sum, segment) => sum + segment.value, 0) || 1
+  return (
+    <div className="space-y-2">
+      <div
+        className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
+        role="img"
+        aria-label={ariaLabel}>
+        {segments.map((segment) => (
+          <span
+            key={segment.label}
+            className="h-full"
+            style={{
+              width: `${(segment.value / total) * 100}%`,
+              background: segment.colour,
+            }}
+          />
+        ))}
+      </div>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+        {segments.map((segment) => (
+          <li key={segment.label} className="inline-flex items-center gap-2">
+            <span
+              className="size-2.5 rounded-full"
+              style={{ background: segment.colour }}
+            />
+            <span>{segment.label}</span>
+            <span className="tabular-nums text-muted-foreground">
+              {segment.value}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function Columns({
+  entries,
+  ariaLabel,
+}: {
+  entries: { label: string; value: number }[]
+  ariaLabel: string
+}) {
+  const max = Math.max(1, ...entries.map((entry) => entry.value))
+  return (
+    <div className="space-y-2">
+      <div
+        className="flex h-28 items-end gap-2"
+        role="img"
+        aria-label={ariaLabel}>
+        {entries.map((entry) => (
+          <div
+            key={entry.label}
+            className="flex flex-1 flex-col items-center justify-end gap-1">
+            <span className="text-[10px] tabular-nums text-muted-foreground">
+              {entry.value}
+            </span>
+            <span
+              className="w-full rounded-t-md bg-primary"
+              style={{
+                height: `${Math.max(entry.value ? 8 : 2, (entry.value / max) * 80)}px`,
+              }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        {entries.map((entry) => (
+          <span
+            key={entry.label}
+            className="flex-1 text-center text-[10px] text-muted-foreground">
+            {entry.label}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
@@ -248,6 +360,7 @@ export default function Insights() {
   const profile = useProfileStore((state) => state.profile)
   const favorites = useCookbookStore((state) => state.favorites)
   const cooked = useCookbookStore((state) => state.cooked)
+  const ratings = useCookbookStore((state) => state.ratings)
   const notes = useCookbookStore((state) => state.notes)
   const pantryItems = usePantryStore((state) => state.items)
   const weeks = usePlannerStore((state) => state.weeks)
@@ -342,68 +455,75 @@ export default function Insights() {
     [cooked, byId],
   )
 
-  const times = useMemo(
-    () =>
-      catalog.map(
-        (item) => item.recipe.prepTimeMinutes + item.recipe.cookTimeMinutes,
-      ),
-    [catalog],
-  )
-  const calories = useMemo(
-    () => catalog.map((item) => item.recipe.caloriesPerServing),
-    [catalog],
-  )
-
-  const cuisineEntries = useMemo(() => {
+  const cuisineChart = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const item of catalog)
+    for (const [id, entry] of Object.entries(cooked)) {
+      const item = byId.get(id as RecipeId)
+      if (!item) continue
       counts.set(
         item.recipe.cuisine,
-        (counts.get(item.recipe.cuisine) ?? 0) + 1,
+        (counts.get(item.recipe.cuisine) ?? 0) + entry.count,
       )
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([label, value], index) => ({
-        label,
-        value,
-        colour: DONUT_COLOURS[index % DONUT_COLOURS.length]!,
-      }))
-  }, [catalog])
-
-  const mealEntries = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const item of catalog)
-      for (const meal of item.recipe.mealType)
-        counts.set(meal, (counts.get(meal) ?? 0) + 1)
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([label, value]) => ({ label, value }))
-  }, [catalog])
-
-  const tagRanking = useMemo(() => {
-    if (profile.favoriteCuisines.length)
-      return {
-        title: 'Saved cuisines',
-        items: profile.favoriteCuisines.map((value) => ({
-          label: value,
-          value:
-            cuisineEntries.find((entry) => entry.label === value)?.value ?? 0,
-        })),
-      }
-    const counts = new Map<string, number>()
-    for (const item of catalog)
-      for (const tag of item.recipe.tags)
-        counts.set(tag, (counts.get(tag) ?? 0) + 1)
-    return {
-      title: 'Top 14 tags',
-      items: [...counts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 14)
-        .map(([label, value]) => ({ label, value })),
     }
-  }, [catalog, cuisineEntries, profile.favoriteCuisines])
+    const ranked = [...counts.entries()]
+      .filter(([, value]) => value > 0)
+      .sort((a, b) => b[1] - a[1])
+    const entries = ranked.slice(0, 5).map(([label, value], index) => ({
+      label,
+      value,
+      colour: CHART_COLOURS[index % CHART_COLOURS.length]!,
+    }))
+    const other = ranked.slice(5).reduce((sum, [, value]) => sum + value, 0)
+    if (other > 0)
+      entries.push({
+        label: 'Other',
+        value: other,
+        colour: CHART_COLOURS[5]!,
+      })
+    return {
+      entries,
+      total: entries.reduce((sum, entry) => sum + entry.value, 0),
+    }
+  }, [cooked, byId])
+
+  const savedCooked = useMemo(
+    () =>
+      Object.keys(favorites).filter((id) => (cooked[id]?.count ?? 0) > 0)
+        .length,
+    [favorites, cooked],
+  )
+
+  const ratingValues = Object.values(ratings)
+  const ratingAverage = average(ratingValues)
+  const ratingBuckets = [5, 4, 3, 2, 1].map((value) => ({
+    label: `${value}★`,
+    value: ratingValues.filter((rating) => rating === value).length,
+  }))
+
+  const ownRecipes = useMemo(
+    () => catalog.filter((item) => item.source === 'mine'),
+    [catalog],
+  )
+  const ownDifficulties = ['Easy', 'Medium', 'Hard'].map((difficulty) => ({
+    label: difficulty,
+    value: ownRecipes.filter((item) => item.recipe.difficulty === difficulty)
+      .length,
+  }))
+  const ownAverageMinutes = ownRecipes.length
+    ? Math.round(
+        average(
+          ownRecipes.map(
+            (item) => item.recipe.prepTimeMinutes + item.recipe.cookTimeMinutes,
+          ),
+        ),
+      )
+    : 0
+
+  const showCookbook =
+    cuisineChart.entries.length > 0 ||
+    saved > 0 ||
+    ratingValues.length > 0 ||
+    ownRecipes.length > 0
 
   if (!hasPersonalData)
     return (
@@ -416,7 +536,7 @@ export default function Insights() {
         <EmptyState
           glyph="📈"
           title="Your insights start with your first recipe"
-          body="Save a favourite, log a cook, or fill your pantry. Everything here is computed locally from what you do, never from an account or a server."
+          body="Save a favourite, log a cook, or fill your pantry. Everything here is built from what you do — never from an account or a server."
           actions={
             <>
               <ButtonLink to="/recipes">
@@ -441,7 +561,7 @@ export default function Insights() {
       <PageHeader
         eyebrow="YOUR KITCHEN, IN NUMBERS"
         title="Little habits add up."
-        sub="Every number below is computed locally from this browser. No accounts, no tracking, no server writes."
+        sub="A quiet look at how you cook, save and explore — all from this device."
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -460,8 +580,8 @@ export default function Insights() {
         <Stat
           icon={<Leaf size={19} />}
           value={`${coveragePercent}%`}
-          label="average pantry coverage"
-          hint={`${pantryItems.length} pantry ${pantryItems.length === 1 ? 'item' : 'items'} across the catalogue`}
+          label="pantry coverage"
+          hint={`${plural(pantryItems.length, 'item')} on your shelf`}
         />
         <Stat
           icon={<Utensils size={19} />}
@@ -483,7 +603,7 @@ export default function Insights() {
           <div className="grid gap-5 lg:grid-cols-2">
             <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
               <h3 className="mb-3 text-sm font-semibold">Cooks per week</h3>
-              <LineChart values={cooksPerWeek} />
+              <AreaChart values={cooksPerWeek} />
             </Card>
             <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
               <h3 className="mb-3 text-sm font-semibold">
@@ -504,11 +624,99 @@ export default function Insights() {
         </section>
       )}
 
+      {showCookbook && (
+        <section className="space-y-5">
+          <SectionHeading
+            eyebrow="YOUR COOKBOOK"
+            title="The shelf you have built"
+            sub="Built from what you save, cook, rate and create — never from the catalogue as a whole."
+          />
+          <div className="grid gap-5 lg:grid-cols-2">
+            {cuisineChart.entries.length > 0 && (
+              <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
+                <h3 className="text-sm font-semibold">Cuisines you cook</h3>
+                <p className="mb-3 mt-1 text-xs text-muted-foreground">
+                  How often you have cooked each cuisine, counted from your
+                  logged cooks.
+                </p>
+                <Donut
+                  entries={cuisineChart.entries}
+                  centreValue={String(cuisineChart.total)}
+                  centreLabel={cuisineChart.total === 1 ? 'cook' : 'cooks'}
+                  ariaLabel={`Cooks by cuisine: ${cuisineChart.entries
+                    .map((entry) => `${entry.label} ${entry.value}`)
+                    .join(', ')}`}
+                />
+              </Card>
+            )}
+            {saved > 0 && (
+              <Card className="space-y-3 rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
+                <h3 className="text-sm font-semibold">
+                  Favourited recipes you have cooked
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {savedCooked} of {plural(saved, 'favourited recipe')} have
+                  been cooked at least once.
+                </p>
+                <StackedBar
+                  segments={[
+                    {
+                      label: 'Cooked',
+                      value: savedCooked,
+                      colour: 'var(--color-primary, #49633d)',
+                    },
+                    {
+                      label: 'Not yet cooked',
+                      value: saved - savedCooked,
+                      colour: '#c2865a',
+                    },
+                  ]}
+                  ariaLabel={`Favourited recipes: ${savedCooked} cooked, ${saved - savedCooked} not yet cooked`}
+                />
+                <ButtonLink variant="outline" className="w-full" to="/cookbook">
+                  Open cookbook
+                </ButtonLink>
+              </Card>
+            )}
+            {ratingValues.length > 0 && (
+              <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
+                <h3 className="text-sm font-semibold">How you rate</h3>
+                <p className="mb-3 mt-1 text-xs text-muted-foreground">
+                  You average {ratingAverage.toFixed(1)} out of 5 across{' '}
+                  {plural(ratingValues.length, 'recipe')}.
+                </p>
+                <Columns
+                  entries={ratingBuckets}
+                  ariaLabel={`Ratings: ${ratingBuckets
+                    .map((entry) => `${entry.label} ${entry.value}`)
+                    .join(', ')}`}
+                />
+              </Card>
+            )}
+            {ownRecipes.length > 0 && (
+              <Card className="space-y-3 rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
+                <h3 className="text-sm font-semibold">Your own recipes</h3>
+                <p className="text-xs text-muted-foreground">
+                  {plural(ownRecipes.length, 'recipe')} written by you,
+                  averaging {ownAverageMinutes} minutes each.
+                </p>
+                <Columns
+                  entries={ownDifficulties}
+                  ariaLabel={`Your recipes by difficulty: ${ownDifficulties
+                    .map((entry) => `${entry.label} ${entry.value}`)
+                    .join(', ')}`}
+                />
+              </Card>
+            )}
+          </div>
+        </section>
+      )}
+
       <section className="space-y-5">
         <SectionHeading
           eyebrow="TASTE PROFILE"
-          title="How your taste shapes the catalogue"
-          sub="Each diet uses the same detection engine as For You, so these counts cannot disagree."
+          title="How your taste shapes your picks"
+          sub="Each diet follows the same rules as For You, so the numbers always agree."
         />
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Card className="space-y-5 rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
@@ -611,7 +819,7 @@ export default function Insights() {
                         {index + 1}
                       </span>
                       <Link
-                        to={`/recipes/${item.id}`}
+                        to={`/recipes/${recipeSlug(item.id)}`}
                         className="truncate hover:text-primary">
                         {item.recipe.name}
                       </Link>
@@ -627,7 +835,7 @@ export default function Insights() {
               </ol>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No ranked recipes yet. Check the catalogue connection.
+                Your picks will appear here as your profile comes together.
               </p>
             )}
             <ButtonLink variant="outline" className="mt-4 w-full" to="/foryou">
@@ -637,109 +845,9 @@ export default function Insights() {
         </div>
       </section>
 
-      <section className="space-y-5">
-        <SectionHeading
-          eyebrow="THE CATALOGUE"
-          title="What is in the collection"
-          sub="A snapshot of the recipes everyone can browse, before your taste narrows the list."
-        />
-        <div className="grid gap-5 lg:grid-cols-2">
-          <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
-            <h3 className="mb-3 text-sm font-semibold">Recipes by cuisine</h3>
-            <Donut entries={cuisineEntries} />
-          </Card>
-          <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
-            <h3 className="mb-3 text-sm font-semibold">Recipes by meal type</h3>
-            {mealEntries.length ? (
-              <Bars entries={mealEntries} />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Meal types are not listed yet.
-              </p>
-            )}
-          </Card>
-          <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <BarChart3 size={16} aria-hidden="true" /> Time and calories
-            </h3>
-            {times.length ? (
-              <dl className="grid grid-cols-2 gap-x-5 gap-y-2 text-sm">
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Quickest</dt>
-                  <dd className="tabular-nums">{Math.min(...times)} min</dd>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Longest</dt>
-                  <dd className="tabular-nums">{Math.max(...times)} min</dd>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Median</dt>
-                  <dd className="tabular-nums">
-                    {Math.round(median(times))} min
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Average</dt>
-                  <dd className="tabular-nums">
-                    {Math.round(average(times))} min
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Lightest</dt>
-                  <dd className="tabular-nums">{Math.min(...calories)} kcal</dd>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-muted-foreground">Richest</dt>
-                  <dd className="tabular-nums">{Math.max(...calories)} kcal</dd>
-                </div>
-                <div className="col-span-2 flex justify-between gap-2 border-t border-border pt-2">
-                  <dt className="text-muted-foreground">Average calories</dt>
-                  <dd className="tabular-nums">
-                    {Math.round(average(calories))} kcal
-                  </dd>
-                </div>
-              </dl>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No catalogue data to summarise yet.
-              </p>
-            )}
-          </Card>
-          <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
-            <h3 className="mb-3 text-sm font-semibold">{tagRanking.title}</h3>
-            {tagRanking.items.length ? (
-              <ul className="flex flex-wrap gap-2">
-                {tagRanking.items.map((entry) => (
-                  <li
-                    key={entry.label}
-                    className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs">
-                    <span
-                      className="size-1.5 rounded-full bg-primary"
-                      aria-hidden="true"
-                    />
-                    {entry.label}
-                    {entry.value > 0 && (
-                      <span className="text-[10px] tabular-nums text-muted-foreground">
-                        {entry.value}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Save a few cuisines in your profile to rank them here.
-              </p>
-            )}
-          </Card>
-        </div>
-      </section>
-
       <p className="border-t border-border pt-4 text-xs leading-5 text-muted-foreground">
-        Computed from <code>{STORAGE_KEYS.profile}</code>,{' '}
-        <code>{STORAGE_KEYS.cookbook}</code>, <code>{STORAGE_KEYS.pantry}</code>
-        , <code>{STORAGE_KEYS.planner}</code>, and the in-memory recipe
-        catalogue.
+        Built from your profile, saved recipes, pantry and plans on this device.
+        Nothing leaves this browser.
         {notes
           ? ` ${plural(Object.keys(notes).length, 'private note')} included.`
           : ''}

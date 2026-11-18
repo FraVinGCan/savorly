@@ -30,6 +30,7 @@ import { ModeToggle } from './mode-toggle'
 import { ToastViewport } from './ui/toast'
 import { Badge, ButtonLink, ScorePill } from './primitives'
 import type { CatalogRecipe } from '../types/recipe'
+import { recipeSlug } from '../types/recipe'
 import type { RecipeEvaluation } from '../domain/scoring'
 
 const primaryNav = [
@@ -352,7 +353,7 @@ export function RecipeCard({
   return (
     <Card className="group/recipe relative gap-3 overflow-hidden rounded-2xl border border-border bg-card p-0 text-foreground shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg">
       <Link
-        to={`/recipes/${item.id}`}
+        to={`/recipes/${recipeSlug(item.id)}`}
         className="relative block aspect-[16/10] overflow-hidden bg-muted">
         <img
           className="size-full object-cover transition-transform duration-500 group-hover/recipe:scale-105"
@@ -408,7 +409,7 @@ export function RecipeCard({
           )}
         </div>
         <Link
-          to={`/recipes/${item.id}`}
+          to={`/recipes/${recipeSlug(item.id)}`}
           className="line-clamp-2 font-heading text-xl leading-tight hover:text-primary">
           {recipe.name}
         </Link>

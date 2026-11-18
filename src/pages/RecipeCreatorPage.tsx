@@ -35,7 +35,8 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from '../components/ui/native-select'
-import type { Recipe, RecipeId } from '../types/recipe'
+import type { Recipe } from '../types/recipe'
+import { recipeIdFromSlug, recipeSlug } from '../types/recipe'
 
 type Row = { value: string }
 
@@ -96,7 +97,7 @@ function FieldError({ message }: { message?: string }) {
 
 export default function RecipeCreatorPage() {
   const { id: routeId } = useParams()
-  const id = routeId as RecipeId | undefined
+  const id = useMemo(() => recipeIdFromSlug(routeId), [routeId])
   const navigate = useNavigate()
   const { get, cuisines } = useRecipes()
   const existing = id ? get(id) : undefined
@@ -251,7 +252,7 @@ export default function RecipeCreatorPage() {
             'Saved to this device',
             'The API echo failed, so your edit was kept locally.',
           )
-        navigate(`/recipes/${id}`)
+        navigate(`/recipes/${recipeSlug(id)}`)
       } else {
         const result = await addCreation(recipe)
         if (result.synced) toast.success('Recipe added', recipe.name ?? 'Saved')
@@ -260,7 +261,7 @@ export default function RecipeCreatorPage() {
             'Added to this device',
             'The API echo failed, so your recipe was kept locally.',
           )
-        navigate(`/recipes/${result.id}`)
+        navigate(`/recipes/${recipeSlug(result.id)}`)
       }
     } finally {
       setSaving(false)
@@ -281,7 +282,9 @@ export default function RecipeCreatorPage() {
           body="The recipe may have been removed, or it belongs to the shared catalogue. You can still browse it."
           actions={
             <>
-              <ButtonLink to={`/recipes/${id}`}>Open the recipe</ButtonLink>
+              <ButtonLink to={`/recipes/${recipeSlug(id)}`}>
+                Open the recipe
+              </ButtonLink>
               <ButtonLink variant="outline" to="/creations/new">
                 Add your own
               </ButtonLink>
@@ -648,7 +651,9 @@ export default function RecipeCreatorPage() {
         </Card>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <ButtonLink variant="ghost" to={mine ? `/recipes/${id}` : '/recipes'}>
+          <ButtonLink
+            variant="ghost"
+            to={mine ? `/recipes/${recipeSlug(mine.id)}` : '/recipes'}>
             Cancel
           </ButtonLink>
           <div className="flex items-center gap-3">

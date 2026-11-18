@@ -48,6 +48,7 @@ import {
   NativeSelectOption,
 } from '../components/ui/native-select'
 import type { CatalogRecipe, RecipeId } from '../types/recipe'
+import { recipeSlug } from '../types/recipe'
 
 const categoryLabel = (category: string) =>
   CATEGORY_META[category as IngredientCategory]?.label ?? category
@@ -246,7 +247,7 @@ export default function Planner() {
                       key={id}
                       className="rounded-xl border border-border/70 bg-background/60 p-2">
                       <Link
-                        to={`/recipes/${id}`}
+                        to={`/recipes/${recipeSlug(id)}`}
                         className="line-clamp-2 text-sm font-medium leading-5 hover:text-primary">
                         {item.recipe.name}
                       </Link>

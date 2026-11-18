@@ -43,14 +43,14 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Checkbox } from '../components/ui/controls'
 import { Textarea } from '../components/ui/textarea'
-import type { RecipeId } from '../types/recipe'
+import { recipeIdFromSlug, recipeSlug } from '../types/recipe'
 
 export default function RecipeDetail() {
   const { id: routeId } = useParams()
-  const id = (routeId ?? '') as RecipeId
+  const id = recipeIdFromSlug(routeId)
   const navigate = useNavigate()
   const { catalog, get } = useRecipes()
-  const item = get(id)
+  const item = id ? get(id) : undefined
   useDocumentTitle(item?.recipe.name ?? 'Recipe')
 
   const { ctx } = useTasteSetup()
@@ -233,7 +233,9 @@ export default function RecipeDetail() {
           </Button>
           {item.source === 'mine' && (
             <>
-              <ButtonLink variant="outline" to={`/creations/${item.id}/edit`}>
+              <ButtonLink
+                variant="outline"
+                to={`/creations/${recipeSlug(item.id)}/edit`}>
                 Edit
               </ButtonLink>
               <Button

@@ -55,6 +55,7 @@ import { Input } from '../components/ui/input'
 import { Checkbox } from '../components/ui/controls'
 import { TabGroup } from '../components/ui/tabs'
 import type { RecipeId } from '../types/recipe'
+import { recipeSlug } from '../types/recipe'
 
 type ProfileTab = 'taste' | 'data' | 'creations' | 'appearance'
 type ClearZone =
@@ -713,7 +714,7 @@ export default function Profile() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <Link
-                  to={`/recipes/${catalogId}`}
+                  to={`/recipes/${recipeSlug(catalogId)}`}
                   className="font-heading text-lg leading-tight hover:text-primary">
                   {recipe.name}
                 </Link>
@@ -730,7 +731,7 @@ export default function Profile() {
               <ButtonLink
                 variant="outline"
                 size="sm"
-                to={`/creations/${catalogId}/edit`}>
+                to={`/creations/${recipeSlug(catalogId)}/edit`}>
                 <Pencil size={14} aria-hidden="true" />
                 Edit
               </ButtonLink>

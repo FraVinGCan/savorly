@@ -8,7 +8,6 @@ import {
   TrendingUp,
   Utensils,
 } from 'lucide-react'
-import { MAX_RAW } from '../domain/scoring'
 import { useRecipes } from '../hooks/useRecipes'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { PageHeader, PageLayout } from '../components/app-shared'
@@ -18,52 +17,52 @@ import { Card } from '../components/ui/card'
 const PIPELINE = [
   {
     icon: Database,
-    title: 'One fetch',
-    body: 'Savorly reads the public DummyJSON catalogue once and the tag list once. There are no search requests per keystroke and no background polling.',
+    title: 'One quick load',
+    body: 'Savorly loads the recipe collection once when you arrive, so browsing stays fast. Nothing refreshes in the background while you read.',
   },
   {
     icon: Utensils,
-    title: 'Normalise ingredients',
-    body: 'Every free-prose ingredient becomes a stable key — accents folded, parentheticals dropped, quantities and noise words removed — so “2 cups flour” and “flour” are the same staple.',
+    title: 'Ingredients, understood',
+    body: '“2 cups flour” and “flour” are treated as the same ingredient, so pantry checks and shopping lists stay sensible.',
   },
   {
     icon: ShieldCheck,
-    title: 'Eligibility, then ranking',
-    body: 'Your diets, allergens and avoid list run first as hard blocks. Only recipes that clear them are ranked, so an off-menu recipe can never outscore a safe one.',
+    title: 'Your rules come first',
+    body: 'Your diets, allergens and avoid list are checked before anything is suggested. A recipe that clashes with your profile never rises to the top.',
   },
   {
     icon: ListChecks,
-    title: 'Pantry feeds ranking',
-    body: 'Pantry matching is fuzzy by design: an ingredient is owned when any normalised token overlaps. Coverage adds to the score without pretending quantities exist.',
+    title: 'Your pantry counts',
+    body: 'Tell Savorly what you have and recipes that use more of it move up. Matching is generous enough to forgive the odd variation.',
   },
   {
     icon: BookOpenCheck,
-    title: 'Plans merge into one list',
-    body: 'The planner rebuilds one de-duplicated, aisle-grouped shopping list from every planned recipe on each render. Ticking an item is stored per week.',
+    title: 'One tidy shopping list',
+    body: 'Plan a few recipes and Savorly folds their ingredients into a single aisle-grouped list you can tick off as you shop.',
   },
   {
     icon: TrendingUp,
-    title: 'Activity reshapes what you see',
-    body: 'Cooks, favourites, ratings and notes stay local and feed back into the ranking, the cookbook, and the insights — never into an account or a server.',
+    title: 'It learns your kitchen',
+    body: 'What you cook, save, rate and note gently shapes your suggestions over time. All of it stays on this device.',
   },
 ] as const
 
 const GUARANTEES = [
   {
-    title: 'A read-only API',
-    body: 'The catalogue is fetched, never edited. Creation and edit actions use the API only as a normaliser, then keep the real record on this device.',
+    title: 'A collection to browse',
+    body: 'The shared catalogue is read-only. Your own recipes and edits stay with you on this device.',
   },
   {
     title: 'No accounts',
-    body: 'There is no sign-up, no login, and no profile on a server. Refreshing the page is the only session you need.',
+    body: 'There is no sign-up, no login, and no profile on a server. Refresh the page and everything is still here.',
   },
   {
     title: 'No tracking',
-    body: 'No analytics, advertising pixels, or third-party scripts. Your kitchen data does not leave this browser.',
+    body: 'No analytics, advertising pixels or third-party scripts. What you cook stays between you and this browser.',
   },
   {
     title: 'Honest matching',
-    body: 'Allergen detection is keyword-based. It is a helpful filter, not a medical guarantee, and the app says so plainly wherever it matters.',
+    body: 'Allergen checks are a helpful filter based on listed ingredients, not a medical guarantee. Always check the recipe.',
   },
 ] as const
 
@@ -76,7 +75,7 @@ export default function About() {
       <PageHeader
         eyebrow="A SMALL PROMISE"
         title="Recipes, thoughtfully sorted."
-        sub="A little more personal, a little less noisy — and honest about how the sorting works.">
+        sub="A little more personal, a little less noisy — and honest about how your recipes are chosen.">
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-border bg-card p-4">
             <b className="block font-heading text-3xl">{catalog.length}</b>
@@ -95,9 +94,9 @@ export default function About() {
 
       <section>
         <SectionHeading
-          eyebrow="THE PIPELINE"
-          title="Six stages, one honest path"
-          sub="From a single fetch to the recipe you actually cook."
+          eyebrow="HOW IT WORKS"
+          title="Six steps, no mystery"
+          sub="From your first visit to the recipe on your plate."
         />
         <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {PIPELINE.map((stage, index) => {
@@ -128,26 +127,26 @@ export default function About() {
         <Card className="flex flex-col justify-between gap-4 rounded-2xl border border-primary/25 bg-secondary/60 p-6 shadow-none">
           <div>
             <Badge tone="brand" glyph="⚖️">
-              Scoring constant
+              How matches work
             </Badge>
             <h2 className="mt-3 font-heading text-2xl">
-              Every score starts from {MAX_RAW}
+              Great match, good match, worth a try.
             </h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Reasons carry positive or negative weights. Savorly sums them and
-              maps the total onto 0–100 with <code>{MAX_RAW}</code> as the
-              ceiling. A profile conflict is a hard zero, not a low score.
+              Savorly weighs what it knows about your taste, time and pantry,
+              then turns the total into a simple score out of 100. A recipe that
+              conflicts with your profile is set aside, not just ranked low.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge tone="neutral">Great match · 75+</Badge>
             <Badge tone="neutral">Good match · 60+</Badge>
             <Badge tone="neutral">Fair match · 45+</Badge>
-            <Badge tone="neutral">Long shot · below 45</Badge>
+            <Badge tone="neutral">Worth a try · below 45</Badge>
           </div>
           <ButtonLink variant="outline" to="/foryou">
             <Sparkles size={16} aria-hidden="true" />
-            See your scores
+            See your matches
           </ButtonLink>
         </Card>
 

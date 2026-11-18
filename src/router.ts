@@ -29,8 +29,7 @@ export const router = createBrowserRouter([
         }),
         handle: {
           title: 'Recipe',
-          breadcrumb: ({ id }: { id?: string }) =>
-            id ? `Recipe ${id}` : 'Recipe',
+          breadcrumb: 'Recipe',
         },
       },
       {
