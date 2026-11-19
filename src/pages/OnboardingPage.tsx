@@ -542,7 +542,7 @@ export default function Onboarding() {
         open={startOver}
         onOpenChange={setStartOver}
         title="Start your taste over?"
-        description="This clears your current answers and the profile stored in this browser. Saved recipes, notes, plans and pantry items stay."
+        description="This clears your current answers and taste profile on this browser. Saved recipes, notes, plans and pantry items stay."
         confirmLabel="Start over"
         destructive
         onConfirm={() => {

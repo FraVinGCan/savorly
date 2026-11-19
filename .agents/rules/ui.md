@@ -14,3 +14,13 @@ live in `src/components/primitives.tsx` and share `buttonVariants` with
 `buttonVariants` lives in `src/components/ui/button-variants.ts` so
 `button.tsx` exports only a component, which keeps the React Fast Refresh lint
 rule satisfied.
+
+## Keep local-storage language in three places only
+
+Applies to: `src/**/*.tsx`
+
+Reassurance that data lives in the browser appears only on the About page, in
+the site footer, and in delete confirmations. Other copy describes the user's
+kitchen and outcomes without naming browsers, devices, storage keys or
+persistence mechanics. Backup copy names a single file to keep and restore, not
+its format. Storage usage rows use friendly section names, never raw keys.

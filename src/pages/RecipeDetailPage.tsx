@@ -168,11 +168,7 @@ export default function RecipeDetail() {
   const removeCreation = async () => {
     const result = await deleteCreation(item.id)
     if (result.synced) toast.success('Recipe deleted', recipe.name)
-    else
-      toast.error(
-        'Recipe removed locally',
-        'The DummyJSON echo failed, but your local copy is gone.',
-      )
+    else toast.info('Recipe removed', 'It is gone from your kitchen.')
     navigate('/recipes')
   }
 
@@ -298,7 +294,7 @@ export default function RecipeDetail() {
             <h2 className="font-heading text-2xl">What you&apos;ll need</h2>
             <p className="text-sm leading-6 text-muted-foreground">
               This source doesn&apos;t include quantities. Tick an ingredient to
-              add it to your pantry; the check is saved on this device.
+              add it to your pantry.
             </p>
             <ul className="space-y-1">
               {recipe.ingredients.map((ingredient) => {
@@ -361,7 +357,7 @@ export default function RecipeDetail() {
               onChange={(event) => setNote(item.id, event.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Saved automatically in this browser.
+              Your notes update as you type.
             </p>
           </section>
 
@@ -588,8 +584,8 @@ export default function RecipeDetail() {
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title="Delete this local recipe?"
-        description="This removes it from this browser. It is local-only and cannot be undone."
+        title="Delete this recipe?"
+        description="This deletes the recipe from this browser. It can’t be undone."
         confirmLabel="Delete recipe"
         destructive
         onConfirm={() => void removeCreation()}

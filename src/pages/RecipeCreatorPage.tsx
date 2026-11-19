@@ -169,10 +169,7 @@ export default function RecipeCreatorPage() {
     if (result.synced) toast.success('Recipe deleted', name)
     else {
       forgetCreation(id)
-      toast.info(
-        'Removed from this device',
-        'The API echo failed, so Savorly used the local-only fallback.',
-      )
+      toast.info('Recipe removed', 'It is gone from your kitchen.')
     }
     navigate('/recipes')
   }
@@ -247,20 +244,12 @@ export default function RecipeCreatorPage() {
         const result = await updateCreation(id, recipe)
         if (result.synced)
           toast.success('Recipe updated', recipe.name ?? 'Saved')
-        else
-          toast.info(
-            'Saved to this device',
-            'The API echo failed, so your edit was kept locally.',
-          )
+        else toast.info('Recipe updated', 'Your changes are in place.')
         navigate(`/recipes/${recipeSlug(id)}`)
       } else {
         const result = await addCreation(recipe)
         if (result.synced) toast.success('Recipe added', recipe.name ?? 'Saved')
-        else
-          toast.info(
-            'Added to this device',
-            'The API echo failed, so your recipe was kept locally.',
-          )
+        else toast.info('Recipe added', 'It is in your kitchen.')
         navigate(`/recipes/${recipeSlug(result.id)}`)
       }
     } finally {
@@ -274,7 +263,7 @@ export default function RecipeCreatorPage() {
         <PageHeader
           eyebrow="YOUR RECIPE BOX"
           title="That recipe is not yours to edit."
-          sub="Only recipes saved on this device can be edited or deleted here."
+          sub="Only your own recipes can be edited or deleted here."
         />
         <EmptyState
           glyph="🔒"
@@ -299,7 +288,7 @@ export default function RecipeCreatorPage() {
       <PageHeader
         eyebrow="YOUR RECIPE BOX"
         title={mine ? 'Give it a little tweak.' : 'Add a recipe of your own.'}
-        sub="Your recipes stay on this device and join your personal collection with a stable mine-* id."
+        sub="Your recipes join your personal collection and are ready whenever you are."
         actions={
           mine ? (
             <Button variant="outline" onClick={() => setConfirmDelete(true)}>
@@ -669,7 +658,7 @@ export default function RecipeCreatorPage() {
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title={`Delete ${mine?.recipe.name ?? 'this recipe'}?`}
-        description="This deletes the recipe from this device only. It is local and irreversible — DummyJSON keeps no copy to restore."
+        description="This deletes the recipe from this browser. It can’t be undone."
         confirmLabel="Delete recipe"
         destructive
         onConfirm={() => void deleteConfirm()}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import {
   Link,
   NavLink,
@@ -60,15 +60,18 @@ function GlobalSearch({
   value,
   mobile = false,
   registerShortcut = true,
+  onSearch,
 }: {
   value: string
   mobile?: boolean
   registerShortcut?: boolean
+  onSearch?: () => void
 }) {
   const [search, setSearch] = useState(value)
   const [syncedValue, setSyncedValue] = useState(value)
   const location = useLocation()
   const navigate = useNavigate()
+  const inputId = useId()
   const inputRef = useMemo(
     () => ({ current: null as HTMLInputElement | null }),
     [],
@@ -79,20 +82,19 @@ function GlobalSearch({
     setSyncedValue(value)
     setSearch(value)
   }
-  useEffect(() => {
-    if (search.trim() === value) return
-    const timer = window.setTimeout(() => {
-      const query = search.trim()
-      const params = new URLSearchParams(
-        location.pathname === '/recipes' ? location.search : '',
-      )
-      if (query) params.set('q', query)
-      else params.delete('q')
-      params.delete('page')
-      navigate(`/recipes${params.size ? `?${params}` : ''}`, { replace: true })
-    }, 350)
-    return () => window.clearTimeout(timer)
-  }, [search, value, location.pathname, location.search, navigate])
+
+  const submitSearch = () => {
+    const query = search.trim()
+    const params = new URLSearchParams(
+      location.pathname === '/recipes' ? location.search : '',
+    )
+    if (query) params.set('q', query)
+    else params.delete('q')
+    params.delete('page')
+    navigate(`/recipes${params.size ? `?${params}` : ''}`)
+    onSearch?.()
+  }
+
   useEffect(() => {
     if (!registerShortcut) return
     const keydown = (event: KeyboardEvent) => {
@@ -112,27 +114,43 @@ function GlobalSearch({
     return () => window.removeEventListener('keydown', keydown)
   }, [inputRef, registerShortcut])
   return (
-    <label
+    <form
+      role="search"
+      onSubmit={(event) => {
+        event.preventDefault()
+        submitSearch()
+      }}
       className={`${
         mobile
           ? 'mb-3 flex w-full'
           : 'ml-auto hidden h-10 w-full max-w-xs sm:flex'
       } items-center gap-2 rounded-xl border border-border bg-card px-3 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/40`}>
-      <Search size={16} aria-hidden="true" />
-      <span className="sr-only">Search recipes</span>
+      <label className="sr-only" htmlFor={inputId}>
+        Search recipes
+      </label>
       <input
+        id={inputId}
         ref={inputRef}
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         placeholder="Search recipes…"
+        enterKeyHint="search"
         className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
       />
+      <Button
+        type="submit"
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Search"
+        className="text-muted-foreground hover:text-foreground">
+        <Search className="size-4" aria-hidden="true" />
+      </Button>
       {registerShortcut && (
         <kbd className="rounded border border-border px-1.5 py-0.5 text-[10px]">
           /
         </kbd>
       )}
-    </label>
+    </form>
   )
 }
 
@@ -196,7 +214,12 @@ function MobileDrawer({
                 <X className="size-4" aria-hidden="true" />
               </DialogPrimitive.Close>
             </div>
-            <GlobalSearch mobile value={search} registerShortcut={false} />
+            <GlobalSearch
+              mobile
+              value={search}
+              registerShortcut={false}
+              onSearch={() => onOpenChange(false)}
+            />
             <nav aria-label="Mobile navigation" className="flex flex-col gap-1">
               {allNav.map(([label, path]) => (
                 <NavLink

@@ -43,7 +43,7 @@ const PIPELINE = [
   {
     icon: TrendingUp,
     title: 'It learns your kitchen',
-    body: 'What you cook, save, rate and note gently shapes your suggestions over time. All of it stays on this device.',
+    body: 'What you cook, save, rate and note gently shapes your suggestions over time.',
   },
 ] as const
 
@@ -54,7 +54,7 @@ const GUARANTEES = [
   },
   {
     title: 'No accounts',
-    body: 'There is no sign-up, no login, and no profile on a server. Refresh the page and everything is still here.',
+    body: 'There is no sign-up and no login. Everything you add is here whenever you come back.',
   },
   {
     title: 'No tracking',

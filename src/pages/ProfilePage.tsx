@@ -6,7 +6,6 @@ import {
   ChefHat,
   Download,
   Leaf,
-  Moon,
   Pencil,
   ShieldCheck,
   Sparkles,
@@ -94,7 +93,7 @@ const CLEAR_ZONES: Record<
   creations: {
     label: 'My recipes',
     title: 'Clear your own recipes?',
-    loss: 'Every recipe you created on this device will be removed. Favourites, notes, plans and ratings for other recipes stay.',
+    loss: 'Every recipe you created on this browser will be removed. Favourites, notes, plans and ratings for other recipes stay.',
   },
   compare: {
     label: 'Compare tray',
@@ -104,11 +103,21 @@ const CLEAR_ZONES: Record<
   everything: {
     label: 'Everything',
     title: 'Clear all Savorly data?',
-    loss: 'This removes your profile, cookbook, pantry, plans, creations, compare tray and theme choice from this browser. There is no account to restore them from — export a backup first if you want to keep a copy.',
+    loss: 'This clears your taste profile, cookbook, pantry, plans, own recipes, compare tray and theme from this browser. You can’t undo this — export a backup first if you’d like to keep a copy.',
   },
 }
 
 const BACKUP_VERSION_KEY = 'savorly.version'
+
+const STORAGE_LABELS: Record<string, string> = {
+  [STORAGE_KEYS.theme]: 'Appearance',
+  [STORAGE_KEYS.profile]: 'Taste profile',
+  [STORAGE_KEYS.cookbook]: 'Cookbook',
+  [STORAGE_KEYS.pantry]: 'Pantry',
+  [STORAGE_KEYS.planner]: 'Plans',
+  [STORAGE_KEYS.creations]: 'My recipes',
+  [STORAGE_KEYS.compare]: 'Compare tray',
+}
 
 export default function Profile() {
   useDocumentTitle('Profile')
@@ -210,7 +219,7 @@ export default function Profile() {
       URL.revokeObjectURL(url)
       toast.success(
         'Backup exported',
-        'Seven storage sections written to JSON.',
+        'Keep this file somewhere safe to restore later.',
       )
     } catch {
       toast.error(
@@ -257,8 +266,8 @@ export default function Profile() {
       }
       if (!restored) throw new Error('No recognisable sections')
       toast.success(
-        `${restored} Savorly ${restored === 1 ? 'section' : 'sections'} restored`,
-        'Reloading so every store rehydrates cleanly.',
+        `${restored} ${restored === 1 ? 'part' : 'parts'} of your kitchen restored`,
+        'Savorly reloads when it’s done.',
       )
       window.setTimeout(() => window.location.reload(), 900)
     } catch {
@@ -311,10 +320,7 @@ export default function Profile() {
     if (result.synced) toast.success('Recipe deleted', target.name)
     else {
       forgetCreation(target.id)
-      toast.info(
-        'Removed from this device',
-        'The API echo failed, so Savorly used the local-only fallback.',
-      )
+      toast.info('Recipe removed', 'It is gone from your kitchen.')
     }
   }
 
@@ -419,7 +425,7 @@ export default function Profile() {
         <Card className="space-y-5 rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
           <SectionHeading
             title="Diets and allergens"
-            sub="Every surface uses the same keyword engine, so these choices agree everywhere."
+            sub="Your choices shape what you see across Savorly."
             className="mb-2"
           />
           <div>
@@ -529,7 +535,7 @@ export default function Profile() {
         <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
           <SectionHeading
             title="Favourite tags"
-            sub={`${profile.favoriteTags.length} chosen · tags come from the live catalogue.`}
+            sub={`${profile.favoriteTags.length} chosen · ${tags.length} to choose from.`}
             className="mb-2"
           />
           <div className="flex max-h-52 flex-wrap gap-2 overflow-y-auto pr-1">
@@ -548,7 +554,7 @@ export default function Profile() {
       <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
         <SectionHeading
           title="How Savorly sees you"
-          sub="These are the preferences every score and recommendation reads."
+          sub="A snapshot of the preferences behind your suggestions."
           className="mb-2"
         />
         <div className="flex flex-wrap gap-2">
@@ -613,7 +619,7 @@ export default function Profile() {
         <Card className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
           <SectionHeading
             title="Backup and restore"
-            sub="One pretty-printed JSON file covering all seven storage keys."
+            sub="A single file you can keep safe and restore later."
             className="mb-2"
           />
           <div className="flex flex-wrap gap-2">
@@ -637,23 +643,24 @@ export default function Profile() {
             />
           </div>
           <p className="text-xs leading-5 text-muted-foreground">
-            Import validates every section against the same defensive parsers
-            the app uses on load. Unknown keys are ignored, and no corrupt value
-            can crash the app. The page reloads after a successful import.
+            We check the file before restoring anything. Anything we don’t
+            recognise is skipped. Savorly reloads when it’s done.
           </p>
         </Card>
 
         <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
           <SectionHeading
             title="Storage usage"
-            sub={`${formatBytes(usage.total)} across ${ALL_STORAGE_KEYS.length} keys in this browser.`}
+            sub={`${formatBytes(usage.total)} used by your kitchen.`}
             className="mb-2"
           />
           <ul className="space-y-2.5">
             {usage.rows.map((row) => (
               <li key={row.key} className="space-y-1">
                 <div className="flex items-baseline justify-between gap-2 text-xs">
-                  <code className="truncate">{row.key}</code>
+                  <span className="truncate">
+                    {STORAGE_LABELS[row.key] ?? row.key}
+                  </span>
                   <span className="shrink-0 tabular-nums text-muted-foreground">
                     {formatBytes(row.bytes)}
                   </span>
@@ -672,8 +679,8 @@ export default function Profile() {
 
       <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
         <SectionHeading
-          title="Clear data by section"
-          sub="Each zone is independent and always confirms what will be lost."
+          title="Clear one part"
+          sub="Pick what to clear — everything else stays."
           className="mb-2"
         />
         <div className="grid gap-2 sm:grid-cols-2">
@@ -701,10 +708,7 @@ export default function Profile() {
   const creationsContent = creations.length ? (
     <div className="space-y-4">
       <p className="rounded-xl border border-border bg-muted/50 px-4 py-3 text-xs leading-5 text-muted-foreground">
-        Editing writes a new local copy through the API&apos;s echo endpoint
-        because DummyJSON has no real writes. If that echo fails, Savorly keeps
-        the local edit and tells you. Deleting is local-only and cannot be
-        undone.
+        Changes to your recipes take effect right away and can’t be undone.
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
         {creations.map(({ catalogId, recipe }) => (
@@ -753,7 +757,7 @@ export default function Profile() {
     <EmptyState
       glyph="✍️"
       title="No recipes of your own yet"
-      body="Add one and it joins the catalogue with a stable mine-* id, scores alongside API recipes, and survives a reload."
+      body="Add one and it becomes part of your kitchen — ready to cook, rate and come back to."
       actions={
         <ButtonLink to="/creations/new">
           <Sparkles size={16} aria-hidden="true" />
@@ -768,7 +772,7 @@ export default function Profile() {
       <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
         <SectionHeading
           title="Theme"
-          sub="System follows your device. The choice is saved before the page paints, so there is no flash."
+          sub="System follows your device’s setting."
           className="mb-2"
         />
         <div className="flex flex-wrap gap-2">
@@ -791,11 +795,6 @@ export default function Profile() {
             </Chip>
           ))}
         </div>
-        <p className="mt-4 inline-flex items-center gap-2 text-xs text-muted-foreground">
-          <Moon size={14} aria-hidden="true" />
-          Saved as an unquoted string at <code>{STORAGE_KEYS.theme}</code> so
-          the bootstrap script can read it.
-        </p>
       </Card>
 
       <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
@@ -808,13 +807,10 @@ export default function Profile() {
           {[
             ['ShieldCheck', 'No accounts. There is nothing to sign up for.'],
             ['ShieldCheck', 'No tracking, analytics or advertising pixels.'],
+            ['ShieldCheck', 'No uploads. Your kitchen stays yours.'],
             [
               'ShieldCheck',
-              'No server writes. Your kitchen data stays in this browser.',
-            ],
-            [
-              'ShieldCheck',
-              'No diet guarantees. Allergen detection is keyword-based, not a medical claim.',
+              'No diet guarantees. Allergen notes aren’t medical advice — always check ingredients yourself.',
             ],
           ].map(([, text], index) => (
             <li key={index} className="flex items-start gap-2.5">
@@ -840,7 +836,6 @@ export default function Profile() {
     {
       value: 'data' as const,
       label: 'Your data',
-      count: ALL_STORAGE_KEYS.length,
       content: dataContent,
     },
     {
@@ -861,7 +856,7 @@ export default function Profile() {
       <PageHeader
         eyebrow="YOUR SAVORLY"
         title="Your kitchen, your preferences."
-        sub="A few details help us bring the right recipes closer. Everything below is stored in this browser only."
+        sub="A few details help us bring the right recipes closer."
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -881,7 +876,6 @@ export default function Profile() {
           icon={<Utensils size={19} />}
           value={creations.length}
           label="recipes of your own"
-          hint="Stable mine-* ids"
         />
         <Stat
           icon={<Leaf size={19} />}
@@ -929,7 +923,7 @@ export default function Profile() {
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         title={`Delete ${deleteTarget?.name ?? 'this recipe'}?`}
-        description="This deletes the recipe from this device only. It cannot be undone, and the API keeps no copy to restore."
+        description="This deletes the recipe from this device. It can’t be undone."
         confirmLabel="Delete recipe"
         destructive
         onConfirm={() => void confirmDelete()}

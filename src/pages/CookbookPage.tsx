@@ -166,7 +166,7 @@ export default function Cookbook() {
       <PageHeader
         eyebrow="YOUR KEEPSAKES"
         title="Recipes worth keeping."
-        sub="All the recipes you have saved, cooked, noted and rated — stored on this device."
+        sub="All the recipes you've saved, cooked, noted and rated."
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -186,7 +186,6 @@ export default function Cookbook() {
           icon={<NotebookPen size={19} />}
           value={noteIds.length}
           label="notes written"
-          hint="Private to this browser"
         />
         <Stat
           icon={<Star size={19} />}

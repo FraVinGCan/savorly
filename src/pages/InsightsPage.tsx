@@ -561,7 +561,7 @@ export default function Insights() {
       <PageHeader
         eyebrow="YOUR KITCHEN, IN NUMBERS"
         title="Little habits add up."
-        sub="A quiet look at how you cook, save and explore — all from this device."
+        sub="A quiet look at how you cook, save and explore."
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -846,8 +846,7 @@ export default function Insights() {
       </section>
 
       <p className="border-t border-border pt-4 text-xs leading-5 text-muted-foreground">
-        Built from your profile, saved recipes, pantry and plans on this device.
-        Nothing leaves this browser.
+        Built from your taste profile, cookbook, pantry and plans.
         {notes
           ? ` ${plural(Object.keys(notes).length, 'private note')} included.`
           : ''}
