@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 import { Link } from 'react-router'
 import {
   Bookmark,
@@ -26,6 +26,13 @@ import { useTasteSetup } from '../hooks/useTasteSetup'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { PageHeader, PageLayout } from '../components/app-shared'
 import {
+  CookTrendChart,
+  CookedFavouritesChart,
+  CuisineDonutChart,
+  MostCookedBarsChart,
+  ValueColumnsChart,
+} from '../components/charts'
+import {
   Badge,
   ButtonLink,
   EmptyState,
@@ -38,302 +45,97 @@ import { GOAL_LABELS, SPICE_LABELS } from '../lib/format'
 import type { CatalogRecipe, RecipeId } from '../types/recipe'
 import { recipeSlug } from '../types/recipe'
 
-const CHART_COLOURS = [
-  'var(--color-primary, #49633d)',
-  '#c2865a',
-  '#7b9c8b',
-  '#c9ae5c',
-  '#8a7ba6',
-  '#b0717f',
-  '#6c8bb0',
-  '#9c8a6d',
-]
-
-function AreaChart({ values }: { values: number[] }) {
-  const width = 320
-  const height = 110
-  const max = Math.max(1, ...values)
-  const points = values.map((value, index) => {
-    const x = (index / Math.max(1, values.length - 1)) * (width - 24) + 12
-    const y = height - 14 - (value / max) * (height - 28)
-    return { x, y, value }
-  })
-  const line = points.map((point) => `${point.x},${point.y}`).join(' ')
-  const area = [
-    `${points[0]?.x ?? 12},${height - 14}`,
-    ...points.map((point) => `${point.x},${point.y}`),
-    `${points[points.length - 1]?.x ?? width - 12},${height - 14}`,
-  ].join(' ')
-  return (
-    <figure className="space-y-2">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-28 w-full text-primary"
-        role="img"
-        aria-label={`Cooks per week: ${values.join(', ')}`}>
-        <line
-          x1="12"
-          y1={height - 14}
-          x2={width - 12}
-          y2={height - 14}
-          stroke="currentColor"
-          className="opacity-20"
-          strokeWidth="1"
-        />
-        <polygon
-          points={area}
-          fill="currentColor"
-          fillOpacity="0.16"
-          stroke="none"
-        />
-        <polyline
-          points={line}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        {points.map((point, index) => (
-          <circle
-            key={index}
-            cx={point.x}
-            cy={point.y}
-            r="3.5"
-            fill="currentColor"
-          />
-        ))}
-      </svg>
-      <figcaption className="flex justify-between text-[10px] text-muted-foreground">
-        <span>8 weeks ago</span>
-        <span>This week</span>
-      </figcaption>
-    </figure>
-  )
-}
-
 function HeatStrip({ weeks }: { weeks: string[][] }) {
+  const background = (level: string | number) => {
+    const value = Number(level)
+    return value === 0
+      ? 'var(--color-muted, rgba(0,0,0,0.05))'
+      : `color-mix(in srgb, var(--color-primary, #49633d) ${25 + value * 18}%, transparent)`
+  }
+  const weekLabel = (index: number) =>
+    index === weeks.length - 1
+      ? 'This week'
+      : plural(weeks.length - 1 - index, 'week ago', 'weeks ago')
+  const shortWeekLabel = (index: number) =>
+    index === weeks.length - 1 ? 'Now' : `${weeks.length - 1 - index}w`
+
   return (
     <div className="space-y-1.5">
-      <div className="flex gap-1.5">
-        {weeks.map((week, weekIndex) => (
-          <div key={weekIndex} className="flex flex-1 flex-col gap-1.5">
-            {week.map((level, dayIndex) => (
-              <span
-                key={`${weekIndex}-${dayIndex}`}
-                title={`${WEEKDAYS[dayIndex]} · ${level} cook${level === '1' ? '' : 's'}`}
-                className="aspect-square rounded-sm border border-border/50"
-                style={{
-                  background:
-                    level === '0'
-                      ? 'var(--color-muted, rgba(0,0,0,0.05))'
-                      : `color-mix(in srgb, var(--color-primary, #49633d) ${25 + Number(level) * 18}%, transparent)`,
-                }}
-              />
-            ))}
-          </div>
+      <div
+        className="grid gap-1.5"
+        style={{
+          gridTemplateColumns: `auto repeat(${weeks.length}, minmax(0, 1fr))`,
+        }}
+        role="group"
+        aria-label="Cooks by weekday across the last eight weeks">
+        {WEEKDAYS.map((day, dayIndex) => (
+          <Fragment key={day}>
+            <span
+              aria-hidden="true"
+              className="flex items-center justify-end whitespace-nowrap text-[9px] font-medium text-muted-foreground sm:text-[10px]">
+              {day.slice(0, 3)}
+            </span>
+            {weeks.map((week, weekIndex) => {
+              const level = week[dayIndex] ?? '0'
+              const count = Number(level)
+              const tooltipPosition = [
+                dayIndex === 0 ? 'top-full mt-1.5' : 'bottom-full mb-1.5',
+                weekIndex === 0
+                  ? 'left-0'
+                  : weekIndex === weeks.length - 1
+                    ? 'right-0'
+                    : 'left-1/2 -translate-x-1/2',
+              ].join(' ')
+              return (
+                <span
+                  key={weekIndex}
+                  role="img"
+                  aria-label={`${day} · ${weekLabel(weekIndex)} · ${plural(count, 'cook')}`}
+                  tabIndex={0}
+                  className="group relative aspect-square rounded-sm border border-border/50 transition duration-150 hover:z-10 hover:scale-110 hover:border-primary/50 focus-visible:z-10 focus-visible:scale-110 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                  style={{ background: background(level) }}>
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none invisible absolute z-20 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-[10px] font-medium text-foreground opacity-0 shadow-md transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${tooltipPosition}`}>
+                    <span className="font-semibold">
+                      {day} · {weekLabel(weekIndex)}
+                    </span>
+                    <span className="ml-2 text-muted-foreground">
+                      {plural(count, 'cook')}
+                    </span>
+                  </span>
+                </span>
+              )
+            })}
+          </Fragment>
+        ))}
+        <span aria-hidden="true" />
+        {weeks.map((_, weekIndex) => (
+          <span
+            key={weekIndex}
+            aria-hidden="true"
+            className="text-center text-[9px] leading-4 text-muted-foreground sm:text-[10px]">
+            {shortWeekLabel(weekIndex)}
+          </span>
         ))}
       </div>
-      <div className="flex justify-between text-[10px] text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
         <span>Mon–Sun × 8 weeks</span>
-        <span>Less → more</span>
-      </div>
-    </div>
-  )
-}
-
-function Donut({
-  entries,
-  centreValue,
-  centreLabel,
-  ariaLabel,
-}: {
-  entries: { label: string; value: number; colour: string }[]
-  centreValue: string
-  centreLabel: string
-  ariaLabel: string
-}) {
-  const total = entries.reduce((sum, entry) => sum + entry.value, 0) || 1
-  const radius = 42
-  const circumference = 2 * Math.PI * radius
-  const slices = entries.map((entry, index) => ({
-    entry,
-    length: (entry.value / total) * circumference,
-    offset: entries
-      .slice(0, index)
-      .reduce(
-        (sum, previous) => sum + (previous.value / total) * circumference,
-        0,
-      ),
-  }))
-  return (
-    <div className="flex flex-wrap items-center gap-5">
-      <div className="relative size-28 shrink-0">
-        <svg
-          viewBox="0 0 110 110"
-          className="size-full -rotate-90"
-          role="img"
-          aria-label={ariaLabel}>
-          <circle
-            cx="55"
-            cy="55"
-            r={radius}
-            fill="none"
-            stroke="var(--color-muted, rgba(0,0,0,0.06))"
-            strokeWidth="12"
-          />
-          {slices.map(({ entry, length, offset }) => (
-            <circle
-              key={entry.label}
-              cx="55"
-              cy="55"
-              r={radius}
-              fill="none"
-              stroke={entry.colour}
-              strokeWidth="12"
-              strokeDasharray={`${length} ${circumference - length}`}
-              strokeDashoffset={-offset}
+        <span className="inline-flex items-center gap-1.5">
+          <span>Less</span>
+          {[0, 1, 2, 3, 4].map((level) => (
+            <span
+              key={level}
+              role="img"
+              aria-label={`${level} ${plural(level, 'cook')}`}
+              className="size-2.5 rounded-[2px] border border-border/50"
+              style={{ background: background(level) }}
             />
           ))}
-        </svg>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-heading text-lg leading-none">
-            {centreValue}
-          </span>
-          <span className="mt-0.5 text-[10px] text-muted-foreground">
-            {centreLabel}
-          </span>
-        </div>
-      </div>
-      <ul className="min-w-0 flex-1 space-y-1.5 text-xs">
-        {entries.map((entry) => (
-          <li
-            key={entry.label}
-            className="flex items-center justify-between gap-2">
-            <span className="inline-flex min-w-0 items-center gap-2">
-              <span
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ background: entry.colour }}
-              />
-              <span className="truncate">{entry.label}</span>
-            </span>
-            <span className="shrink-0 tabular-nums text-muted-foreground">
-              {entry.value} · {Math.round((entry.value / total) * 100)}%
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function StackedBar({
-  segments,
-  ariaLabel,
-}: {
-  segments: { label: string; value: number; colour: string }[]
-  ariaLabel: string
-}) {
-  const total = segments.reduce((sum, segment) => sum + segment.value, 0) || 1
-  return (
-    <div className="space-y-2">
-      <div
-        className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
-        role="img"
-        aria-label={ariaLabel}>
-        {segments.map((segment) => (
-          <span
-            key={segment.label}
-            className="h-full"
-            style={{
-              width: `${(segment.value / total) * 100}%`,
-              background: segment.colour,
-            }}
-          />
-        ))}
-      </div>
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-        {segments.map((segment) => (
-          <li key={segment.label} className="inline-flex items-center gap-2">
-            <span
-              className="size-2.5 rounded-full"
-              style={{ background: segment.colour }}
-            />
-            <span>{segment.label}</span>
-            <span className="tabular-nums text-muted-foreground">
-              {segment.value}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function Columns({
-  entries,
-  ariaLabel,
-}: {
-  entries: { label: string; value: number }[]
-  ariaLabel: string
-}) {
-  const max = Math.max(1, ...entries.map((entry) => entry.value))
-  return (
-    <div className="space-y-2">
-      <div
-        className="flex h-28 items-end gap-2"
-        role="img"
-        aria-label={ariaLabel}>
-        {entries.map((entry) => (
-          <div
-            key={entry.label}
-            className="flex flex-1 flex-col items-center justify-end gap-1">
-            <span className="text-[10px] tabular-nums text-muted-foreground">
-              {entry.value}
-            </span>
-            <span
-              className="w-full rounded-t-md bg-primary"
-              style={{
-                height: `${Math.max(entry.value ? 8 : 2, (entry.value / max) * 80)}px`,
-              }}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        {entries.map((entry) => (
-          <span
-            key={entry.label}
-            className="flex-1 text-center text-[10px] text-muted-foreground">
-            {entry.label}
-          </span>
-        ))}
+          <span>More</span>
+        </span>
       </div>
     </div>
-  )
-}
-
-function Bars({ entries }: { entries: { label: string; value: number }[] }) {
-  const max = Math.max(1, ...entries.map((entry) => entry.value))
-  return (
-    <ul className="space-y-2">
-      {entries.map((entry) => (
-        <li
-          key={entry.label}
-          className="grid grid-cols-[7rem_1fr_2rem] items-center gap-2 text-xs">
-          <span className="truncate">{entry.label}</span>
-          <span className="h-2 overflow-hidden rounded-full bg-muted">
-            <span
-              className="block h-full rounded-full bg-primary"
-              style={{ width: `${(entry.value / max) * 100}%` }}
-            />
-          </span>
-          <span className="text-right tabular-nums text-muted-foreground">
-            {entry.value}
-          </span>
-        </li>
-      ))}
-    </ul>
   )
 }
 
@@ -468,18 +270,12 @@ export default function Insights() {
     const ranked = [...counts.entries()]
       .filter(([, value]) => value > 0)
       .sort((a, b) => b[1] - a[1])
-    const entries = ranked.slice(0, 5).map(([label, value], index) => ({
+    const entries = ranked.slice(0, 5).map(([label, value]) => ({
       label,
       value,
-      colour: CHART_COLOURS[index % CHART_COLOURS.length]!,
     }))
     const other = ranked.slice(5).reduce((sum, [, value]) => sum + value, 0)
-    if (other > 0)
-      entries.push({
-        label: 'Other',
-        value: other,
-        colour: CHART_COLOURS[5]!,
-      })
+    if (other > 0) entries.push({ label: 'Other', value: other })
     return {
       entries,
       total: entries.reduce((sum, entry) => sum + entry.value, 0),
@@ -603,7 +399,10 @@ export default function Insights() {
           <div className="grid gap-5 lg:grid-cols-2">
             <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
               <h3 className="mb-3 text-sm font-semibold">Cooks per week</h3>
-              <AreaChart values={cooksPerWeek} />
+              <CookTrendChart
+                values={cooksPerWeek}
+                ariaLabel={`Cooks per week: ${cooksPerWeek.join(', ')}`}
+              />
             </Card>
             <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
               <h3 className="mb-3 text-sm font-semibold">
@@ -613,11 +412,16 @@ export default function Insights() {
             </Card>
             <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60 lg:col-span-2">
               <h3 className="mb-3 text-sm font-semibold">Most cooked</h3>
-              <Bars
+              <MostCookedBarsChart
                 entries={mostCooked.map((entry) => ({
                   label: entry.name,
                   value: entry.count,
                 }))}
+                ariaLabel={`Most cooked: ${mostCooked
+                  .map(
+                    (entry) => `${entry.name} ${plural(entry.count, 'cook')}`,
+                  )
+                  .join(', ')}`}
               />
             </Card>
           </div>
@@ -639,7 +443,7 @@ export default function Insights() {
                   How often you have cooked each cuisine, counted from your
                   logged cooks.
                 </p>
-                <Donut
+                <CuisineDonutChart
                   entries={cuisineChart.entries}
                   centreValue={String(cuisineChart.total)}
                   centreLabel={cuisineChart.total === 1 ? 'cook' : 'cooks'}
@@ -658,7 +462,7 @@ export default function Insights() {
                   {savedCooked} of {plural(saved, 'favourited recipe')} have
                   been cooked at least once.
                 </p>
-                <StackedBar
+                <CookedFavouritesChart
                   segments={[
                     {
                       label: 'Cooked',
@@ -685,7 +489,7 @@ export default function Insights() {
                   You average {ratingAverage.toFixed(1)} out of 5 across{' '}
                   {plural(ratingValues.length, 'recipe')}.
                 </p>
-                <Columns
+                <ValueColumnsChart
                   entries={ratingBuckets}
                   ariaLabel={`Ratings: ${ratingBuckets
                     .map((entry) => `${entry.label} ${entry.value}`)
@@ -700,7 +504,7 @@ export default function Insights() {
                   {plural(ownRecipes.length, 'recipe')} written by you,
                   averaging {ownAverageMinutes} minutes each.
                 </p>
-                <Columns
+                <ValueColumnsChart
                   entries={ownDifficulties}
                   ariaLabel={`Your recipes by difficulty: ${ownDifficulties
                     .map((entry) => `${entry.label} ${entry.value}`)
