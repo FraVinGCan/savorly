@@ -12,7 +12,6 @@ import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 import {
   ArrowRight,
   ArrowUp,
-  Bookmark,
   Clock3,
   GitCompare,
   Heart,
@@ -27,7 +26,7 @@ import { useCookbookStore } from '../stores/cookbook'
 import { useToastStore, toast } from '../stores/toast'
 import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
-import { ModeToggle } from './mode-toggle'
+import { ProfileMenu } from './profile-menu'
 import { ToastViewport } from './ui/toast'
 import { Badge, ButtonLink, ScorePill } from './primitives'
 import type { CatalogRecipe } from '../types/recipe'
@@ -44,11 +43,8 @@ const primaryNav = [
 
 const allNav = [
   ...primaryNav,
-  ['Compare', '/compare'],
   ['Insights', '/insights'],
-  ['Profile', '/profile'],
   ['About', '/about'],
-  ['Add a recipe', '/creations/new'],
 ] as const
 
 type CrumbHandle = {
@@ -327,16 +323,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </nav>
           <GlobalSearch value={search} registerShortcut={!drawerOpen} />
           <Link
-            className="hidden items-center gap-2 text-sm text-muted-foreground hover:text-foreground sm:flex"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             to="/compare"
             aria-label={`Compare tray, ${compareCount} of 4 recipes`}>
-            <Bookmark size={17} aria-hidden="true" />
+            <GitCompare size={17} aria-hidden="true" />
             <span className="hidden md:inline">Compare</span>
             <span className="grid min-w-5 place-items-center rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-secondary-foreground">
               {compareCount}
             </span>
           </Link>
-          <ModeToggle />
+          <ProfileMenu />
           <Button
             variant="outline"
             size="icon"
@@ -369,15 +365,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="flex flex-wrap gap-4">
             <Link to="/about">About</Link>
             <Link to="/insights">Insights</Link>
-            <Link to="/profile">Profile</Link>
-            <Link to="/creations/new">Add a recipe</Link>
           </div>
         </div>
       </footer>
       <ScrollRestoration />
       <ToastViewport />
       {showTray && (
-        <div className="fixed inset-x-4 bottom-4 z-30 mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-xl print:hidden sm:inset-x-auto sm:right-6">
+        <div className="fixed inset-x-4 bottom-4 z-30 mx-auto hidden max-w-md items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-xl print:hidden sm:inset-x-auto sm:right-6 sm:flex">
           <span className="text-sm font-medium">
             {compareCount}/4 in your compare tray
           </span>

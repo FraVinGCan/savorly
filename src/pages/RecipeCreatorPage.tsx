@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowRight,
   ArrowUp,
   ChefHat,
@@ -285,6 +286,9 @@ export default function RecipeCreatorPage() {
 
   return (
     <PageLayout className="space-y-8">
+      <ButtonLink variant="ghost" to="/cookbook?tab=mine" className="-ml-3">
+        <ArrowLeft size={17} aria-hidden="true" /> Back to my recipes
+      </ButtonLink>
       <PageHeader
         eyebrow="YOUR RECIPE BOX"
         title={mine ? 'Give it a little tweak.' : 'Add a recipe of your own.'}
@@ -640,9 +644,7 @@ export default function RecipeCreatorPage() {
         </Card>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <ButtonLink
-            variant="ghost"
-            to={mine ? `/recipes/${recipeSlug(mine.id)}` : '/recipes'}>
+          <ButtonLink variant="ghost" to="/cookbook?tab=mine">
             Cancel
           </ButtonLink>
           <div className="flex items-center gap-3">

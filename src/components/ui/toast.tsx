@@ -66,7 +66,7 @@ export function ToastViewport() {
   if (typeof document === 'undefined') return null
   return createPortal(
     <div
-      className="pointer-events-none fixed inset-x-4 bottom-4 z-[110] flex flex-col items-end gap-2 sm:left-auto sm:w-96"
+      className="pointer-events-none fixed inset-x-4 bottom-4 z-[110] flex flex-col items-center gap-2 sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-4 sm:w-96 sm:items-end"
       aria-label="Notifications"
       aria-live="polite">
       {toasts.map((toast) => (

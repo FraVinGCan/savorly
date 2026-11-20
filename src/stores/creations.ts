@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
-import { createRecipe, deleteRecipe, updateRecipe } from '../lib/api'
+import { createRecipe } from '../lib/api'
 import { STORAGE_KEYS } from '../lib/storage'
 import {
   isMineId,
@@ -55,7 +55,7 @@ export function validateCreations(value: unknown): CreationsData {
 
 export const useCreationsStore = create<CreationsState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       creations: [],
       addCreation: async (input) => {
         let echo: Partial<Recipe> = input
@@ -76,20 +76,8 @@ export const useCreationsStore = create<CreationsState>()(
         return { id: catalogId, synced, error }
       },
       updateCreation: async (id, input) => {
-        const entry = get().creations.find((item) => item.catalogId === id)
-        if (!entry) return { synced: false }
-        let echo: Partial<Recipe> = input
-        let synced = true
-        let error: unknown
-        try {
-          echo = await updateRecipe(entry.recipe.id, {
-            ...entry.recipe,
-            ...input,
-          })
-        } catch (cause) {
-          synced = false
-          error = cause
-        }
+        // Created recipes live only in the kitchen; the demo API echoes them
+        // on create but does not persist them, so a later PUT would 404.
         set((state) => ({
           creations: state.creations.map((item) =>
             item.catalogId === id
@@ -98,32 +86,19 @@ export const useCreationsStore = create<CreationsState>()(
                   recipe: normalise({
                     ...item.recipe,
                     ...input,
-                    ...echo,
                     id: item.recipe.id,
                   }),
                 }
               : item,
           ),
         }))
-        return { synced, error }
+        return { synced: false }
       },
       deleteCreation: async (id) => {
-        const entry = get().creations.find((item) => item.catalogId === id)
-        let synced = true
-        let error: unknown
-        if (entry && entry.recipe.id > 0) {
-          try {
-            await deleteRecipe(entry.recipe.id)
-          } catch (cause) {
-            // The API stores nothing, so a failed echo still means a local drop.
-            synced = false
-            error = cause
-          }
-        }
         set((state) => ({
           creations: state.creations.filter((item) => item.catalogId !== id),
         }))
-        return { synced, error }
+        return { synced: false }
       },
       forgetCreation: (id) =>
         set((state) => ({

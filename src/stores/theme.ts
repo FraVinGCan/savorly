@@ -6,6 +6,12 @@ export type ThemeChoice = 'light' | 'dark' | 'system'
 
 export const THEME_CHOICES: ThemeChoice[] = ['light', 'dark', 'system']
 
+export const nextTheme: Record<ThemeChoice, ThemeChoice> = {
+  light: 'dark',
+  dark: 'system',
+  system: 'light',
+}
+
 export const isThemeChoice = (value: unknown): value is ThemeChoice =>
   value === 'light' || value === 'dark' || value === 'system'
 
@@ -57,14 +63,7 @@ export const useThemeStore = create<ThemeStore>()(
       setTheme: (theme) =>
         set({ theme: isThemeChoice(theme) ? theme : 'system' }),
       toggle: () =>
-        set((state) => ({
-          theme:
-            state.theme === 'light'
-              ? 'dark'
-              : state.theme === 'dark'
-                ? 'system'
-                : 'light',
-        })),
+        set((state) => ({ theme: nextTheme[state.theme] })),
     }),
     {
       name: STORAGE_KEYS.theme,

@@ -1,14 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router'
 import { useForm } from 'react-hook-form'
 import {
   Bookmark,
   ChefHat,
   Download,
   Leaf,
-  Pencil,
   ShieldCheck,
-  Sparkles,
   Trash2,
   Upload,
   Utensils,
@@ -41,10 +38,8 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { PageHeader, PageLayout } from '../components/app-shared'
 import {
   Badge,
-  ButtonLink,
   Chip,
   ConfirmDialog,
-  EmptyState,
   SectionHeading,
   Stat,
 } from '../components/primitives'
@@ -53,10 +48,8 @@ import { Card } from '../components/ui/card'
 import { Input } from '../components/ui/input'
 import { Checkbox } from '../components/ui/controls'
 import { TabGroup } from '../components/ui/tabs'
-import type { RecipeId } from '../types/recipe'
-import { recipeSlug } from '../types/recipe'
 
-type ProfileTab = 'taste' | 'data' | 'creations' | 'appearance'
+type ProfileTab = 'taste' | 'data' | 'appearance'
 type ClearZone =
   | 'profile'
   | 'cookbook'
@@ -148,17 +141,11 @@ export default function Profile() {
   const pantryItems = usePantryStore((state) => state.items)
   const weeks = usePlannerStore((state) => state.weeks)
   const creations = useCreationsStore((state) => state.creations)
-  const deleteCreation = useCreationsStore((state) => state.deleteCreation)
-  const forgetCreation = useCreationsStore((state) => state.forgetCreation)
   const { theme, setTheme } = useTheme()
 
   const [tab, setTab] = useState<ProfileTab>('taste')
   const [clearTarget, setClearTarget] = useState<ClearZone | null>(null)
   const [resetTaste, setResetTaste] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<{
-    id: RecipeId
-    name: string
-  } | null>(null)
   const [storageTick, setStorageTick] = useState(0)
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -310,18 +297,6 @@ export default function Profile() {
     setStorageTick((tick) => tick + 1)
     toast.success('Cleared', CLEAR_ZONES[zone].label)
     setClearTarget(null)
-  }
-
-  const confirmDelete = async () => {
-    if (!deleteTarget) return
-    const target = deleteTarget
-    setDeleteTarget(null)
-    const result = await deleteCreation(target.id)
-    if (result.synced) toast.success('Recipe deleted', target.name)
-    else {
-      forgetCreation(target.id)
-      toast.info('Recipe removed', 'It is gone from your kitchen.')
-    }
   }
 
   const tasteContent = (
@@ -705,68 +680,6 @@ export default function Profile() {
     </div>
   )
 
-  const creationsContent = creations.length ? (
-    <div className="space-y-4">
-      <p className="rounded-xl border border-border bg-muted/50 px-4 py-3 text-xs leading-5 text-muted-foreground">
-        Changes to your recipes take effect right away and can’t be undone.
-      </p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {creations.map(({ catalogId, recipe }) => (
-          <Card
-            key={catalogId}
-            className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-none ring-1 ring-border/60">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <Link
-                  to={`/recipes/${recipeSlug(catalogId)}`}
-                  className="font-heading text-lg leading-tight hover:text-primary">
-                  {recipe.name}
-                </Link>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {recipe.cuisine} · {recipe.difficulty} ·{' '}
-                  {recipe.prepTimeMinutes + recipe.cookTimeMinutes} min
-                </p>
-              </div>
-              <Badge tone="sage" glyph="✎">
-                Yours
-              </Badge>
-            </div>
-            <div className="mt-auto flex flex-wrap gap-2">
-              <ButtonLink
-                variant="outline"
-                size="sm"
-                to={`/creations/${recipeSlug(catalogId)}/edit`}>
-                <Pencil size={14} aria-hidden="true" />
-                Edit
-              </ButtonLink>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive"
-                onClick={() =>
-                  setDeleteTarget({ id: catalogId, name: recipe.name })
-                }>
-                <Trash2 size={14} aria-hidden="true" /> Delete
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
-  ) : (
-    <EmptyState
-      glyph="✍️"
-      title="No recipes of your own yet"
-      body="Add one and it becomes part of your kitchen — ready to cook, rate and come back to."
-      actions={
-        <ButtonLink to="/creations/new">
-          <Sparkles size={16} aria-hidden="true" />
-          Add a recipe
-        </ButtonLink>
-      }
-    />
-  )
-
   const appearanceContent = (
     <div className="grid gap-5 lg:grid-cols-2">
       <Card className="rounded-2xl border border-border bg-card p-5 shadow-none ring-1 ring-border/60">
@@ -837,12 +750,6 @@ export default function Profile() {
       value: 'data' as const,
       label: 'Your data',
       content: dataContent,
-    },
-    {
-      value: 'creations' as const,
-      label: 'My recipes',
-      count: creations.length,
-      content: creationsContent,
     },
     {
       value: 'appearance' as const,
@@ -917,16 +824,6 @@ export default function Profile() {
         }
         destructive
         onConfirm={clearZone}
-      />
-
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title={`Delete ${deleteTarget?.name ?? 'this recipe'}?`}
-        description="This deletes the recipe from this device. It can’t be undone."
-        confirmLabel="Delete recipe"
-        destructive
-        onConfirm={() => void confirmDelete()}
       />
     </PageLayout>
   )

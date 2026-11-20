@@ -1,6 +1,15 @@
 import { useMemo, useState } from 'react'
-import { Bookmark, ChefHat, NotebookPen, Star } from 'lucide-react'
+import { useSearchParams } from 'react-router'
+import {
+  Bookmark,
+  ChefHat,
+  NotebookPen,
+  Pencil,
+  Star,
+  Trash2,
+} from 'lucide-react'
 import { useCookbookStore } from '../stores/cookbook'
+import { useCreationsStore } from '../stores/creations'
 import { toast } from '../stores/toast'
 import { useRecipes } from '../hooks/useRecipes'
 import { useTasteSetup } from '../hooks/useTasteSetup'
@@ -20,30 +29,54 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { TabGroup } from '../components/ui/tabs'
 import type { RecipeId } from '../types/recipe'
+import { recipeSlug } from '../types/recipe'
 
-type CookbookTab = 'saved' | 'cooked' | 'notes' | 'rated'
+type CookbookTab = 'saved' | 'cooked' | 'notes' | 'rated' | 'mine'
 
 const LABELS: Record<CookbookTab, string> = {
   saved: 'Favourites',
   cooked: 'Cooked',
   notes: 'Notes',
   rated: 'Rated',
+  mine: 'My recipes',
+}
+
+const TAB_VALUES = Object.keys(LABELS) as CookbookTab[]
+
+function tabFromParam(value: string | null): CookbookTab {
+  return TAB_VALUES.find((tab) => tab === value) ?? 'saved'
 }
 
 export default function Cookbook() {
   useDocumentTitle('Cookbook')
   const { ctx } = useTasteSetup()
-  const { byId, get } = useRecipes()
+  const { byId, catalog, get } = useRecipes()
   const favorites = useCookbookStore((state) => state.favorites)
   const cooked = useCookbookStore((state) => state.cooked)
   const notes = useCookbookStore((state) => state.notes)
   const ratings = useCookbookStore((state) => state.ratings)
   const forget = useCookbookStore((state) => state.forget)
-  const [tab, setTab] = useState<CookbookTab>('saved')
+  const deleteCreation = useCreationsStore((state) => state.deleteCreation)
+  const forgetCreation = useCreationsStore((state) => state.forgetCreation)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = tabFromParam(searchParams.get('tab'))
   const [forgetTarget, setForgetTarget] = useState<{
     id: RecipeId
     name: string
   } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: RecipeId
+    name: string
+  } | null>(null)
+
+  const selectTab = (next: CookbookTab) => {
+    setSearchParams((current) => {
+      const params = new URLSearchParams(current)
+      if (next === 'saved') params.delete('tab')
+      else params.set('tab', next)
+      return params
+    })
+  }
 
   const savedIds = useMemo(
     () =>
@@ -67,6 +100,11 @@ export default function Cookbook() {
         .map(([id]) => id as RecipeId),
     [ratings],
   )
+  const mineIds = useMemo(
+    () =>
+      catalog.filter((item) => item.source === 'mine').map((item) => item.id),
+    [catalog],
+  )
 
   const timesCooked = Object.values(cooked).reduce(
     (sum, entry) => sum + entry.count,
@@ -85,6 +123,7 @@ export default function Cookbook() {
     cooked: cookedIds,
     notes: noteIds,
     rated: ratedIds,
+    mine: mineIds,
   }
   const activeIds = idsFor[tab]
   const activeItems = activeIds.flatMap((id) => {
@@ -112,7 +151,26 @@ export default function Cookbook() {
                 <p className="text-muted-foreground">{notes[item.id]}</p>
               </Card>
             )}
-            {tabular && (
+            {tabular && tab === 'mine' && (
+              <div className="flex flex-wrap items-center gap-2 px-1">
+                <ButtonLink
+                  variant="outline"
+                  size="sm"
+                  to={`/creations/${recipeSlug(item.id)}/edit`}>
+                  <Pencil size={14} aria-hidden="true" /> Edit
+                </ButtonLink>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive"
+                  onClick={() =>
+                    setDeleteTarget({ id: item.id, name: item.recipe.name })
+                  }>
+                  <Trash2 size={14} aria-hidden="true" /> Delete
+                </Button>
+              </div>
+            )}
+            {tabular && tab !== 'mine' && (
               <div className="flex flex-wrap items-center gap-2 px-1 text-xs text-muted-foreground">
                 {tab === 'cooked' && (
                   <Badge tone="sage" glyph="🍳">
@@ -152,6 +210,13 @@ export default function Cookbook() {
           </div>
         ))}
       </div>
+    ) : tab === 'mine' ? (
+      <EmptyState
+        glyph="✍️"
+        title="No recipes of your own yet"
+        body="Add one and it becomes part of your kitchen — ready to cook, rate and come back to."
+        actions={<ButtonLink to="/creations/new">Add a recipe</ButtonLink>}
+      />
     ) : (
       <EmptyState
         glyph="📖"
@@ -161,12 +226,24 @@ export default function Cookbook() {
       />
     )
 
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    const target = deleteTarget
+    setDeleteTarget(null)
+    const result = await deleteCreation(target.id)
+    if (result.synced) toast.success('Recipe deleted', target.name)
+    else {
+      forgetCreation(target.id)
+      toast.info('Recipe removed', 'It is gone from your kitchen.')
+    }
+  }
+
   return (
     <PageLayout className="space-y-8">
       <PageHeader
         eyebrow="YOUR KEEPSAKES"
         title="Recipes worth keeping."
-        sub="All the recipes you've saved, cooked, noted and rated."
+        sub="All the recipes you've saved, cooked, noted, rated and created."
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -198,8 +275,8 @@ export default function Cookbook() {
       <TabGroup
         label="Cookbook sections"
         value={tab}
-        onValueChange={setTab}
-        items={(Object.keys(LABELS) as CookbookTab[]).map((value) => ({
+        onValueChange={selectTab}
+        items={TAB_VALUES.map((value) => ({
           value,
           label: LABELS[value],
           count: idsFor[value].length,
@@ -242,6 +319,16 @@ export default function Cookbook() {
           forget(forgetTarget.id)
           toast.success('Recipe forgotten', forgetTarget.name)
         }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={`Delete ${deleteTarget?.name ?? 'this recipe'}?`}
+        description="This deletes the recipe from this device. It can’t be undone."
+        confirmLabel="Delete recipe"
+        destructive
+        onConfirm={() => void confirmDelete()}
       />
     </PageLayout>
   )
