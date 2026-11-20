@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { cn } from 'cn'
 import { queryOptions, useQuery } from '@tanstack/react-query'
 import {
   BookmarkPlus,
@@ -30,7 +31,8 @@ import { weekKey, weekdayIndex } from '../domain/week'
 import { useRecipes } from '../hooks/useRecipes'
 import { useTasteSetup } from '../hooks/useTasteSetup'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { PageLayout, PageHeader, RecipeCard } from '../components/app-shared'
+import { PageLayout, PageHeader } from '../components/app-shared'
+import { RecipeCard } from '../components/recipe-card'
 import {
   Badge,
   ButtonLink,
@@ -49,6 +51,7 @@ export default function RecipeDetail() {
   const { id: routeId } = useParams()
   const id = recipeIdFromSlug(routeId)
   const navigate = useNavigate()
+  const location = useLocation()
   const { catalog, get } = useRecipes()
   const item = id ? get(id) : undefined
   useDocumentTitle(item?.recipe.name ?? 'Recipe')
@@ -74,6 +77,17 @@ export default function RecipeDetail() {
   const [imageFailed, setImageFailed] = useState(false)
   const [copyFallback, setCopyFallback] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [notesPulse, setNotesPulse] = useState(false)
+
+  useEffect(() => {
+    if (location.hash !== '#notes') {
+      setNotesPulse(false)
+      return
+    }
+    setNotesPulse(true)
+    const timeout = window.setTimeout(() => setNotesPulse(false), 1800)
+    return () => window.clearTimeout(timeout)
+  }, [location.hash, location.key])
 
   const authorId = item?.recipe.userId ?? 0
   const authorQuery = useQuery(
@@ -347,10 +361,15 @@ export default function RecipeDetail() {
             ))}
           </section>
 
-          <section className="space-y-3 border-b border-border pb-7">
+          <section
+            id="notes"
+            className="space-y-3 scroll-mt-24 border-b border-border pb-7">
             <h2 className="font-heading text-2xl">Your private notes</h2>
             <Textarea
-              className="min-h-24 w-full resize-y rounded-xl border border-border bg-card px-3 py-3 text-xs"
+              className={cn(
+                'min-h-24 w-full resize-y rounded-xl border border-border bg-card px-3 py-3 text-xs',
+                notesPulse && 'notes-field-pulse',
+              )}
               placeholder="What did you change? Would you make it again?"
               aria-label="Your private note"
               value={notes[item.id] ?? ''}

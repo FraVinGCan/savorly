@@ -16,7 +16,8 @@ import { toast } from '../stores/toast'
 import { useRecipes } from '../hooks/useRecipes'
 import { useTasteSetup } from '../hooks/useTasteSetup'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { PageHeader, PageLayout, RecipeCard } from '../components/app-shared'
+import { PageHeader, PageLayout } from '../components/app-shared'
+import { RecipeCard } from '../components/recipe-card'
 import {
   Badge,
   ButtonLink,
@@ -121,24 +122,28 @@ export default function PantryPage() {
     rows.length ? (
       <div className="grid gap-5 sm:grid-cols-2">
         {rows.map(({ item, pantry }) => (
-          <div key={item.id} className="space-y-2">
-            <RecipeCard item={item} evaluation={item.evaluation} />
-            <div className="flex flex-wrap items-center gap-2 px-1 text-xs text-muted-foreground">
-              <Badge
-                tone={pantry.missing.length === 0 ? 'sage' : 'neutral'}
-                glyph={pantry.missing.length === 0 ? '✓' : '🧺'}>
-                {pantry.missing.length === 0
-                  ? 'Everything on hand'
-                  : `${Math.round(pantry.coverage * 100)}% on hand`}
-              </Badge>
-              {pantry.missing.length > 0 && (
-                <span className="min-w-0">
-                  Needs {pantry.missing.slice(0, 3).join(', ')}
-                  {pantry.missing.length > 3 ? '…' : ''}
-                </span>
-              )}
-            </div>
-          </div>
+          <RecipeCard
+            key={item.id}
+            item={item}
+            evaluation={item.evaluation}
+            actions={
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <Badge
+                  tone={pantry.missing.length === 0 ? 'sage' : 'neutral'}
+                  glyph={pantry.missing.length === 0 ? '✓' : '🧺'}>
+                  {pantry.missing.length === 0
+                    ? 'Everything on hand'
+                    : `${Math.round(pantry.coverage * 100)}% on hand`}
+                </Badge>
+                {pantry.missing.length > 0 && (
+                  <span className="min-w-0">
+                    Needs {pantry.missing.slice(0, 3).join(', ')}
+                    {pantry.missing.length > 3 ? '…' : ''}
+                  </span>
+                )}
+              </div>
+            }
+          />
         ))}
       </div>
     ) : (

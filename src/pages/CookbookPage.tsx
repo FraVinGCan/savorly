@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import {
   Bookmark,
   ChefHat,
@@ -16,7 +16,8 @@ import { useTasteSetup } from '../hooks/useTasteSetup'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { evaluateRecipe } from '../domain/scoring'
 import { average, formatDate, plural } from '../lib/format'
-import { PageHeader, PageLayout, RecipeCard } from '../components/app-shared'
+import { PageHeader, PageLayout } from '../components/app-shared'
+import { RecipeCard } from '../components/recipe-card'
 import {
   Badge,
   ButtonLink,
@@ -45,6 +46,46 @@ const TAB_VALUES = Object.keys(LABELS) as CookbookTab[]
 
 function tabFromParam(value: string | null): CookbookTab {
   return TAB_VALUES.find((tab) => tab === value) ?? 'saved'
+}
+
+function NoteAction({
+  note,
+  to,
+  onForget,
+}: {
+  note: string
+  to: string
+  onForget: () => void
+}) {
+  const limit = 90
+  const canReadMore = note.length > limit
+  const text = canReadMore ? `${note.slice(0, limit).trimEnd()}…` : note
+
+  return (
+    <div className="space-y-2">
+      <div className="text-sm leading-5 text-muted-foreground">
+        <span className="font-medium text-foreground">Notes: </span>
+        <span className="whitespace-pre-wrap">{text}</span>
+        {canReadMore && (
+          <>
+            {' '}
+            <Link className="font-medium text-primary hover:underline" to={to}>
+              read more
+            </Link>
+          </>
+        )}
+      </div>
+      <div className="flex justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive"
+          onClick={onForget}>
+          Forget
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 export default function Cookbook() {
@@ -133,26 +174,19 @@ export default function Cookbook() {
 
   const list = (tabular: boolean) =>
     activeItems.length ? (
-      <div
-        className={
-          tab === 'notes'
-            ? 'space-y-3'
-            : 'grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-        }>
-        {activeItems.map((item) => (
-          <div key={item.id} className="space-y-2">
-            <RecipeCard item={item} evaluation={evaluateRecipe(item, ctx)} />
-            {tab === 'notes' && (
-              <Card className="rounded-xl border border-border bg-card p-4 text-sm leading-6 shadow-none">
-                <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-foreground">
-                  <NotebookPen size={14} aria-hidden="true" /> Note on{' '}
-                  {item.recipe.name}
-                </div>
-                <p className="text-muted-foreground">{notes[item.id]}</p>
-              </Card>
-            )}
-            {tabular && tab === 'mine' && (
-              <div className="flex flex-wrap items-center gap-2 px-1">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {activeItems.map((item) => {
+          const actions =
+            tab === 'notes' ? (
+              <NoteAction
+                note={notes[item.id] ?? ''}
+                to={`/recipes/${recipeSlug(item.id)}#notes`}
+                onForget={() =>
+                  setForgetTarget({ id: item.id, name: item.recipe.name })
+                }
+              />
+            ) : tabular && tab === 'mine' ? (
+              <div className="flex flex-wrap items-center gap-2">
                 <ButtonLink
                   variant="outline"
                   size="sm"
@@ -169,9 +203,8 @@ export default function Cookbook() {
                   <Trash2 size={14} aria-hidden="true" /> Delete
                 </Button>
               </div>
-            )}
-            {tabular && tab !== 'mine' && (
-              <div className="flex flex-wrap items-center gap-2 px-1 text-xs text-muted-foreground">
+            ) : tabular && tab !== 'mine' ? (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {tab === 'cooked' && (
                   <Badge tone="sage" glyph="🍳">
                     Cooked {cooked[item.id]?.count ?? 0}×
@@ -193,9 +226,8 @@ export default function Cookbook() {
                   Forget
                 </Button>
               </div>
-            )}
-            {!tabular && (
-              <div className="flex justify-end px-1">
+            ) : !tabular ? (
+              <div className="flex justify-end">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -206,9 +238,17 @@ export default function Cookbook() {
                   Forget
                 </Button>
               </div>
-            )}
-          </div>
-        ))}
+            ) : undefined
+
+          return (
+            <RecipeCard
+              key={item.id}
+              item={item}
+              evaluation={evaluateRecipe(item, ctx)}
+              actions={actions}
+            />
+          )
+        })}
       </div>
     ) : tab === 'mine' ? (
       <EmptyState

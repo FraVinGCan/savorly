@@ -17,6 +17,7 @@ import { useTasteSetup } from '../hooks/useTasteSetup'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { percent, titleCase } from '../lib/format'
 import { PageHeader, PageLayout } from '../components/app-shared'
+import { RecipeCard } from '../components/recipe-card'
 import {
   Badge,
   ButtonLink,
@@ -330,52 +331,30 @@ export default function ComparePage() {
       />
 
       <section aria-label="Recipes in the compare tray" className="space-y-3">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {items.map((item) => (
-            <Card
+            <RecipeCard
               key={item.id}
-              className="relative rounded-2xl border border-border bg-card p-0 shadow-none ring-1 ring-border/60">
-              <img
-                className="aspect-[16/9] w-full object-cover"
-                src={item.recipe.image}
-                alt=""
-                loading="lazy"
-                onError={(event) => {
-                  event.currentTarget.style.visibility = 'hidden'
-                }}
-              />
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="absolute right-2 top-2 rounded-full bg-card/90 text-muted-foreground hover:text-destructive"
-                aria-label={`Remove ${item.recipe.name} from compare`}
-                onClick={() => {
-                  remove(item.id)
-                  toast.info('Removed from compare', item.recipe.name)
-                }}>
-                <X size={16} aria-hidden="true" />
-              </Button>
-              <div className="p-3">
-                <Link
-                  to={`/recipes/${recipeSlug(item.id)}`}
-                  className="line-clamp-2 font-heading text-lg leading-tight hover:text-primary">
-                  {item.recipe.name}
-                </Link>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span>{item.recipe.cuisine}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>
-                    {item.recipe.prepTimeMinutes + item.recipe.cookTimeMinutes}{' '}
-                    min
-                  </span>
-                </div>
-              </div>
-            </Card>
+              item={item}
+              evaluation={evaluations.get(item.id)}
+              actions={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-center text-destructive hover:text-destructive"
+                  onClick={() => {
+                    remove(item.id)
+                    toast.info('Removed from compare', item.recipe.name)
+                  }}>
+                  <X size={14} aria-hidden="true" /> Remove from compare
+                </Button>
+              }
+            />
           ))}
           {items.length < MAX_COMPARE && (
             <Link
               to="/recipes"
-              className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card/40 p-4 text-center text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:ring-2 focus-visible:ring-ring">
+              className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-card/40 p-4 text-center text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:ring-2 focus-visible:ring-ring">
               <Plus size={20} aria-hidden="true" />
               <span className="font-medium">Add another recipe</span>
               <small className="text-xs">Browse the catalogue</small>

@@ -22,7 +22,8 @@ import { useScoreLookup } from '../hooks/useScoreLookup'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { copyText } from '../lib/clipboard'
 import { toast } from '../stores/toast'
-import { PageLayout, PageHeader, RecipeGrid } from '../components/app-shared'
+import { PageLayout, PageHeader } from '../components/app-shared'
+import { RecipeGrid } from '../components/recipe-card'
 import {
   AccordionSection,
   ButtonLink,

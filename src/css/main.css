@@ -151,6 +151,27 @@
   }
 }
 
+@keyframes notes-field-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ring) 60%, transparent);
+    background-color: color-mix(in srgb, var(--ring) 14%, var(--card));
+  }
+  40% {
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--ring) 35%, transparent),
+      0 0 0 12px color-mix(in srgb, var(--ring) 12%, transparent);
+    background-color: color-mix(in srgb, var(--ring) 8%, var(--card));
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    background-color: var(--card);
+  }
+}
+
+.notes-field-pulse {
+  animation: notes-field-pulse 1800ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -15,7 +15,8 @@ import { toast } from '../stores/toast'
 import { useRecipes } from '../hooks/useRecipes'
 import { useTasteSetup } from '../hooks/useTasteSetup'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { PageHeader, PageLayout, RecipeCard } from '../components/app-shared'
+import { PageHeader, PageLayout } from '../components/app-shared'
+import { RecipeCard } from '../components/recipe-card'
 import {
   Badge,
   ButtonLink,
@@ -258,28 +259,36 @@ export default function ForYouPage() {
             ) : excluded.length ? (
               <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {excluded.map((item) => (
-                  <div key={item.id} className="space-y-3">
-                    <RecipeCard
-                      item={item}
-                      evaluation={evaluateRecipe(item, ctx)}
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      {profileConflicts(item.recipe, profile).map((reason) => (
-                        <Badge key={reason.id} tone="red" glyph={reason.glyph}>
-                          {reason.label}
-                        </Badge>
-                      ))}
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        logCook(item.id)
-                        toast.success('Logged as cooked', item.recipe.name)
-                      }}>
-                      Still cook it
-                    </Button>
-                  </div>
+                  <RecipeCard
+                    key={item.id}
+                    item={item}
+                    evaluation={evaluateRecipe(item, ctx)}
+                    actions={
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                          {profileConflicts(item.recipe, profile).map(
+                            (reason) => (
+                              <Badge
+                                key={reason.id}
+                                tone="red"
+                                glyph={reason.glyph}>
+                                {reason.label}
+                              </Badge>
+                            ),
+                          )}
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => {
+                            logCook(item.id)
+                            toast.success('Logged as cooked', item.recipe.name)
+                          }}>
+                          Still cook it
+                        </Button>
+                      </div>
+                    }
+                  />
                 ))}
               </div>
             ) : (

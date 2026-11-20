@@ -31,7 +31,8 @@ import { useTasteSetup } from '../hooks/useTasteSetup'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { copyText } from '../lib/clipboard'
 import { formatShortDate, plural } from '../lib/format'
-import { PageHeader, PageLayout, RecipeCard } from '../components/app-shared'
+import { PageHeader, PageLayout } from '../components/app-shared'
+import { RecipeCard } from '../components/recipe-card'
 import {
   Badge,
   ButtonLink,
@@ -447,32 +448,36 @@ export default function Planner() {
         {gaps.length ? (
           <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {gaps.map((item) => (
-              <div key={item.id} className="space-y-2">
-                <RecipeCard item={item} evaluation={item.evaluation} />
-                <label className="block">
-                  <span className="sr-only">
-                    Add {item.recipe.name} to a day
-                  </span>
-                  <NativeSelect
-                    size="sm"
-                    className="w-full"
-                    value=""
-                    onChange={(event) =>
-                      addFromSelect(event.target.value, item)
-                    }>
-                    <NativeSelectOption value="">
-                      + Add to plan…
-                    </NativeSelectOption>
-                    {days.map((day) => (
-                      <NativeSelectOption
-                        key={day.index}
-                        value={String(day.index)}>
-                        {day.name} · {formatShortDate(day.date)}
+              <RecipeCard
+                key={item.id}
+                item={item}
+                evaluation={item.evaluation}
+                actions={
+                  <label className="block">
+                    <span className="sr-only">
+                      Add {item.recipe.name} to a day
+                    </span>
+                    <NativeSelect
+                      size="sm"
+                      className="w-full"
+                      value=""
+                      onChange={(event) =>
+                        addFromSelect(event.target.value, item)
+                      }>
+                      <NativeSelectOption value="">
+                        + Add to plan…
                       </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
-                </label>
-              </div>
+                      {days.map((day) => (
+                        <NativeSelectOption
+                          key={day.index}
+                          value={String(day.index)}>
+                          {day.name} · {formatShortDate(day.date)}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                  </label>
+                }
+              />
             ))}
           </div>
         ) : (

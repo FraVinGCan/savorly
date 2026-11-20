@@ -19,7 +19,8 @@ import { WEEKDAYS, weekKey } from '../domain/week'
 import { useRecipes } from '../hooks/useRecipes'
 import { useTasteSetup } from '../hooks/useTasteSetup'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { PageLayout, RecipeCard } from '../components/app-shared'
+import { PageLayout } from '../components/app-shared'
+import { RecipeCard } from '../components/recipe-card'
 import {
   Badge,
   ButtonLink,

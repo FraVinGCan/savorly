@@ -71,7 +71,8 @@ src/
 ├── router.ts               # Route table and breadcrumb handles
 ├── components/
 │   ├── ui/                 # shadcn/ui primitives
-│   ├── app-shared.tsx      # Navigation shell, page layout, recipe cards
+│   ├── app-shared.tsx      # Navigation shell and page layout
+│   ├── recipe-card.tsx     # Recipe card and recipe grid
 │   └── primitives.tsx      # Shared app UI: badges, dialogs, empty states
 ├── domain/                 # Pure logic: scoring, pantry, taste, week maths
 ├── hooks/                  # Shared queries, personalisation and URL filters
